@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                 String         @unique
+  passwordHash          String?        @map("password_hash")
+  displayName           String         @map("display_name")
+  avatarUrl             String?        @map("avatar_url")
+  role                  Role           @default(user)
+  emailVerifiedAt       DateTime?      @map("email_verified_at")
+  graphicalPasswordHash String?        @map("graphical_password_hash")
+  mfaTotpSecret         String?        @map("mfa_totp_secret")
+  mfaEnabled            Boolean        @default(false) @map("mfa_enabled")
+  storageQuotaBytes     BigInt         @default(5368709120) @map("storage_quota_bytes")
+  storageUsedBytes      BigInt         @default(0) @map("storage_used_bytes")
+  failedLoginCount      Int            @default(0) @map("failed_login_count")
+  lockedUntil           DateTime?      @map("locked_until")
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+  accessLogs            AccessLog[]
+  files                 File[]
+  oauthAccounts         OAuthAccount[]
+  refreshTokens         RefreshToken[]
+  sharesSent            Share[]        @relation("SharesSent")
+  sharesReceived        Share[]        @relation("SharesReceived")
+
+  @@map("users")
+}
+
+model OAuthAccount {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  provider          String
+  providerAccountId String   @map("provider_account_id")
+  email             String
+  createdAt         DateTime @default(now()) @map("created_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("oauth_accounts")
+}
+
+model File {
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId          String     @map("owner_id") @db.Uuid
+  originalFilename String     @map("original_filename")
+  mimeType         String     @map("mime_type")
+  sizeBytes        BigInt     @map("size_bytes")
+  s3KeyEncrypted   String     @map("s3_key_encrypted")
+  s3KeyStego       String     @map("s3_key_stego")
+  iv               String     @db.VarChar(32)
+  authTag          String     @map("auth_tag") @db.VarChar(32)
+  ciphertextSha256 String     @map("ciphertext_sha256") @db.VarChar(64)
+  status           FileStatus @default(pending)
+  isDeleted        Boolean    @default(false) @map("is_deleted")
+  deletedAt        DateTime?  @map("deleted_at")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+  owner            User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  shares           Share[]
+
+  @@map("files")
+}
+
+model Share {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fileId          String          @map("file_id") @db.Uuid
+  ownerId         String          @map("owner_id") @db.Uuid
+  recipientEmail  String          @map("recipient_email")
+  recipientUserId String?         @map("recipient_user_id") @db.Uuid
+  tokenHash       String          @map("token_hash") @db.VarChar(64)
+  permission      SharePermission @default(download)
+  expiresAt       DateTime?       @map("expires_at")
+  revokedAt       DateTime?       @map("revoked_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  file            File            @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  owner           User            @relation("SharesSent", fields: [ownerId], references: [id], onDelete: Cascade)
+  recipient       User?           @relation("SharesReceived", fields: [recipientUserId], references: [id])
+
+  @@map("shares")
+}
+
+model AccessLog {
+  id           BigInt   @id @default(autoincrement())
+  userId       String?  @map("user_id") @db.Uuid
+  action       String   @db.VarChar(50)
+  resourceType String?  @map("resource_type") @db.VarChar(30)
+  resourceId   String?  @map("resource_id") @db.Uuid
+  ipAddress    String   @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         User?    @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@map("access_logs")
+}
+
+model RefreshToken {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  tokenHash   String    @map("token_hash") @db.VarChar(64)
+  deviceLabel String?   @map("device_label")
+  ipAddress   String?   @map("ip_address")
+  userAgent   String?   @map("user_agent")
+  expiresAt   DateTime  @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+enum Role {
+  user
+  admin
+}
+
+enum FileStatus {
+  pending
+  active
+}
+
+enum SharePermission {
+  view
+  download
+}

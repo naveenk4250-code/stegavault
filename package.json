@@ -1,0 +1,23 @@
+{
+  "name": "stegavault",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "api:dev": "npm run start:dev --workspace=apps/api",
+    "web:dev": "npm run dev --workspace=apps/web",
+    "dev": "concurrently \"npm run start:dev --workspace=apps/api\" \"npm run dev --workspace=apps/web\"",
+    "build": "npm run build --workspaces",
+    "db:migrate": "npm run db:migrate --workspace=apps/api",
+    "db:studio": "npm run db:studio --workspace=apps/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.3.3"
+  }
+}
