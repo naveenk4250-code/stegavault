@@ -2,41 +2,41 @@
 
 @layer base {
   body {
-    background-color: #0B1120;
-    color: #F1F5F9;
-    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #F0EDE4;
+    color: #1C1917;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   }
 }
 
-/* Custom Utilities for Premium Glass & Glow Effects */
-.glass-panel {
-  background: rgba(17, 24, 39, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(31, 41, 55, 0.8);
+.font-serif-italic {
+  font-family: 'Playfair Display', 'Instrument Serif', Georgia, serif;
+  font-style: italic;
 }
 
-.glass-panel-hover {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+.font-mono-tag {
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.18em;
 }
 
-.glass-panel-hover:hover {
-  border-color: rgba(16, 185, 129, 0.4);
-  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.15);
-  transform: translateY(-2px);
+/* Retro Editorial Aesthetics */
+.cream-bg {
+  background-color: #F0EDE4;
 }
 
-.glow-emerald {
-  box-shadow: 0 0 20px -3px rgba(16, 185, 129, 0.35);
+.border-editorial {
+  border-color: #D6D2C4;
 }
 
-.glow-cyan {
-  box-shadow: 0 0 20px -3px rgba(6, 182, 212, 0.35);
+.bg-accent-emerald {
+  background-color: #059669;
 }
 
-.grid-pattern {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
-  background-size: 24px 24px;
+.text-accent-emerald {
+  color: #059669;
+}
+
+.border-accent-emerald {
+  border-color: #059669;
 }
 
 /* Custom Scrollbar */
@@ -45,12 +45,13 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0B1120;
+  background: #F0EDE4;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1E293B;
-  border-radius: 4px;
+  background: #A8A29E;
+  border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #10B981;
+  background: #059669;
 }
+

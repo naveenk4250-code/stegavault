@@ -285,7 +285,7 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xl font-extrabold tracking-tight text-slate-100">
-                  STEGA<span className="text-emerald-400">VAULT</span>
+                  SECURE<span className="text-emerald-400">CLOUD</span>
                 </span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold uppercase">
                   ENTERPRISE v2.4
