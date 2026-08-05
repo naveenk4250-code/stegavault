@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { LandingPage } from './components/LandingPage';
+import { AuthCallback } from './pages/AuthCallback';
+import type { OAuthUser } from './lib/oauth';
 import {
   Shield,
   Lock,
@@ -103,9 +106,23 @@ const INITIAL_AUDIT_LOGS = [
   { id: 'log-104', event: 'SHARE_CREATE', user: 'alex.mercer@enterprise.io', detail: 'Created presigned share link for audit.team@enterprise.io', time: '1 day ago', ip: '192.168.1.102', status: 'SUCCESS' },
 ];
 
-export default function App() {
+// ─── Inner app (needs router context) ────────────────────────────────────────
+function AppInner() {
+  const navigate = useNavigate();
   // User Authentication State
-  const [user, setUser] = useState<{ email: string; name: string; org: string } | null>(null);
+  const [user, setUser] = useState<OAuthUser & { org: string } | null>(null);
+
+  // Pick up OAuth user from sessionStorage after callback redirect
+  useEffect(() => {
+    const stored = sessionStorage.getItem('oauth_user');
+    if (stored) {
+      try {
+        const u: OAuthUser = JSON.parse(stored);
+        setUser({ ...u, org: 'SecureCloud Enterprise' });
+        sessionStorage.removeItem('oauth_user');
+      } catch {}
+    }
+  }, []);
 
   // Active navigation tab
   const [activeTab, setActiveTab] = useState<'vault' | 'encrypt' | 'decrypt' | 'shares' | 'audit'>('vault');
@@ -142,6 +159,12 @@ export default function App() {
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3200);
+  };
+
+  const handleLoginSuccess = (u: OAuthUser) => {
+    setUser({ ...u, org: 'SecureCloud Enterprise' });
+    showToast('Authenticated & Vault Loaded');
+    navigate('/');
   };
 
   const copyToClipboard = (text: string, id: string) => {
@@ -252,42 +275,35 @@ export default function App() {
 
   // --- 1. UNAUTHENTICATED: INTERACTIVE PRODUCT LANDING & SHOWCASE ---
   if (!user) {
-    return (
-      <LandingPage
-        onLoginSuccess={(email) => {
-          setUser({ email: email || 'alex.mercer@enterprise.io', name: 'Alex Mercer', org: 'CyberSec Enterprise' });
-          showToast('Authenticated & Loaded Workspace Session');
-        }}
-      />
-    );
+    return <LandingPage onLoginSuccess={handleLoginSuccess} />;
   }
 
   // --- 2. AUTHENTICATED: ENTERPRISE VAULT WORKSPACE ---
   return (
-    <div className="min-h-screen bg-[#090D16] text-slate-100 font-sans flex flex-col grid-pattern">
+    <div className="min-h-screen bg-[#F0EDE4] text-stone-900 font-sans flex flex-col">
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-emerald-500 text-slate-950 font-bold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 animate-bounce">
-          <Sparkles className="w-5 h-5 shrink-0" />
+        <div className="fixed bottom-6 right-6 z-50 bg-[#059669] text-white font-mono text-xs uppercase font-bold tracking-wider px-4 py-3 rounded-none shadow-2xl flex items-center gap-2.5 animate-bounce border border-stone-900">
+          <Sparkles className="w-4 h-4 shrink-0 text-amber-300" />
           <span>{toast}</span>
         </div>
       )}
 
       {/* TOP NAVIGATION BAR */}
-      <header className="sticky top-0 z-40 bg-[#090D16]/90 backdrop-blur-xl border-b border-slate-800/80">
+      <header className="sticky top-0 z-40 bg-[#F0EDE4]/95 backdrop-blur-md border-b border-[#D6D2C4]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           
           {/* Logo & Status */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('vault')}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <Shield className="w-5 h-5 text-slate-950 stroke-[2.5]" />
+            <div className="w-8 h-8 rounded-none bg-stone-950 flex items-center justify-center text-stone-100 font-mono font-bold text-xs">
+              SC
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xl font-extrabold tracking-tight text-slate-100">
-                  SECURE<span className="text-emerald-400">CLOUD</span>
+                <span className="font-brand text-xl font-black tracking-wider text-stone-950 uppercase">
+                  SECURE<span className="text-[#059669]">CLOUD</span>
                 </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold uppercase">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-none bg-[#059669]/10 text-[#059669] border border-[#059669]/20 font-semibold uppercase">
                   ENTERPRISE v2.4
                 </span>
               </div>
@@ -295,60 +311,60 @@ export default function App() {
           </div>
 
           {/* Center Navigation Tabs */}
-          <nav className="hidden md:flex items-center gap-1 bg-slate-900/90 p-1.5 rounded-xl border border-slate-800/90">
+          <nav className="hidden md:flex items-center gap-1 bg-[#EBE7DC] p-1 rounded-none border border-[#D6D2C4]">
             <button
               onClick={() => setActiveTab('vault')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-xs transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all ${
                 activeTab === 'vault'
-                  ? 'bg-emerald-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  ? 'bg-[#059669] text-white font-bold'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
               }`}
             >
-              <FolderLock className="w-4 h-4" />
+              <FolderLock className="w-3.5 h-3.5" />
               Vault Files
             </button>
             <button
               onClick={() => setActiveTab('encrypt')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-xs transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all ${
                 activeTab === 'encrypt'
-                  ? 'bg-emerald-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  ? 'bg-[#059669] text-white font-bold'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
               }`}
             >
-              <Lock className="w-4 h-4" />
+              <Lock className="w-3.5 h-3.5" />
               Encrypt & Embed
             </button>
             <button
               onClick={() => setActiveTab('decrypt')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-xs transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all ${
                 activeTab === 'decrypt'
-                  ? 'bg-emerald-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  ? 'bg-[#059669] text-white font-bold'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
               }`}
             >
-              <Unlock className="w-4 h-4" />
+              <Unlock className="w-3.5 h-3.5" />
               Extract & Decrypt
             </button>
             <button
               onClick={() => setActiveTab('shares')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-xs transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all ${
                 activeTab === 'shares'
-                  ? 'bg-emerald-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  ? 'bg-[#059669] text-white font-bold'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
               }`}
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 className="w-3.5 h-3.5" />
               Share Manager
             </button>
             <button
               onClick={() => setActiveTab('audit')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-xs transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all ${
                 activeTab === 'audit'
-                  ? 'bg-emerald-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  ? 'bg-[#059669] text-white font-bold'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
               }`}
             >
-              <History className="w-4 h-4" />
+              <History className="w-3.5 h-3.5" />
               Audit Logs
             </button>
           </nav>
@@ -357,27 +373,33 @@ export default function App() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setActiveTab('encrypt')}
-              className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs hover:opacity-90 transition-opacity shadow-lg shadow-emerald-500/20"
+              className="flex items-center gap-2 bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest px-4 py-2 rounded-none transition-colors"
             >
-              <Plus className="w-4 h-4 stroke-[3]" />
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span className="hidden sm:inline">Encrypt Payload</span>
             </button>
 
-            <div className="h-6 w-px bg-slate-800 hidden sm:block" />
+            <div className="h-6 w-px bg-[#D6D2C4] hidden sm:block" />
 
             <div className="flex items-center gap-2.5">
-              <button
-                onClick={() => setUser(null)}
-                className="text-xs text-slate-400 hover:text-slate-200 font-mono px-2 py-1"
-              >
-                Exit Demo
-              </button>
-              <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-mono font-bold text-emerald-400">
-                AM
+              <div className="hidden sm:flex flex-col items-end">
+                <span className="text-xs font-mono font-bold text-stone-900 leading-none">{user.name.split(' ')[0]}</span>
+                <span className="text-[10px] font-mono text-stone-400 capitalize">{user.provider}</span>
               </div>
+              {user.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  className="w-8 h-8 rounded-none object-cover border border-[#D6D2C4]"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-none bg-stone-950 text-stone-100 flex items-center justify-center text-xs font-mono font-bold">
+                  {user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                </div>
+              )}
               <button
                 onClick={() => setUser(null)}
-                className="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-900 rounded-xl transition-colors"
+                className="p-2 text-stone-400 hover:text-rose-600 hover:bg-[#EBE7DC] rounded-none transition-colors"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />
@@ -393,47 +415,47 @@ export default function App() {
 
         {/* METRICS & STATUS RIBBON */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="glass-panel p-4 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-              <HardDrive className="w-6 h-6 text-emerald-400" />
+          <div className="bg-white border border-[#D6D2C4] p-4 rounded-none flex items-center gap-4">
+            <div className="w-10 h-10 rounded-none bg-[#059669]/10 border border-[#059669]/20 flex items-center justify-center shrink-0">
+              <HardDrive className="w-5 h-5 text-[#059669]" />
             </div>
             <div>
-              <span className="text-xs text-slate-400 font-mono block">Encrypted Storage</span>
-              <span className="text-lg font-mono font-extrabold text-slate-100">{formatSize(totalUsedBytes)}</span>
-              <span className="text-[10px] text-slate-500 block font-mono">100 GB Enterprise Quota</span>
+              <span className="text-xs text-stone-500 font-mono uppercase block">Encrypted Storage</span>
+              <span className="text-lg font-mono font-extrabold text-stone-900">{formatSize(totalUsedBytes)}</span>
+              <span className="text-[10px] text-stone-500 block font-mono">100 GB Enterprise Quota</span>
             </div>
           </div>
 
-          <div className="glass-panel p-4 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
-              <FolderLock className="w-6 h-6 text-cyan-400" />
+          <div className="bg-white border border-[#D6D2C4] p-4 rounded-none flex items-center gap-4">
+            <div className="w-10 h-10 rounded-none bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
+              <FolderLock className="w-5 h-5 text-cyan-600" />
             </div>
             <div>
-              <span className="text-xs text-slate-400 font-mono block">Secret Payloads</span>
-              <span className="text-lg font-mono font-extrabold text-slate-100">{files.length} Protected</span>
-              <span className="text-[10px] text-emerald-400 block font-mono">100% Integrity Verified</span>
+              <span className="text-xs text-stone-500 font-mono uppercase block">Secret Payloads</span>
+              <span className="text-lg font-mono font-extrabold text-stone-900">{files.length} Protected</span>
+              <span className="text-[10px] text-[#059669] block font-mono uppercase font-semibold">100% Integrity Verified</span>
             </div>
           </div>
 
-          <div className="glass-panel p-4 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
-              <Layers className="w-6 h-6 text-purple-400" />
+          <div className="bg-white border border-[#D6D2C4] p-4 rounded-none flex items-center gap-4">
+            <div className="w-10 h-10 rounded-none bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+              <Layers className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <span className="text-xs text-slate-400 font-mono block">Stego Containers</span>
-              <span className="text-lg font-mono font-extrabold text-slate-100">1-Bit LSB PNG</span>
-              <span className="text-[10px] text-purple-400 block font-mono">Imperceptible Pixels</span>
+              <span className="text-xs text-stone-500 font-mono uppercase block">Stego Containers</span>
+              <span className="text-lg font-mono font-extrabold text-stone-900">1-Bit LSB PNG</span>
+              <span className="text-[10px] text-purple-600 block font-mono uppercase font-semibold">Imperceptible Pixels</span>
             </div>
           </div>
 
-          <div className="glass-panel p-4 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-              <Shield className="w-6 h-6 text-emerald-400" />
+          <div className="bg-white border border-[#D6D2C4] p-4 rounded-none flex items-center gap-4">
+            <div className="w-10 h-10 rounded-none bg-[#059669]/10 border border-[#059669]/20 flex items-center justify-center shrink-0">
+              <Shield className="w-5 h-5 text-[#059669]" />
             </div>
             <div>
-              <span className="text-xs text-slate-400 font-mono block">Cipher Standard</span>
-              <span className="text-lg font-mono font-extrabold text-slate-100">AES-256-GCM</span>
-              <span className="text-[10px] text-emerald-400 block font-mono">WebCrypto Hardware Accel</span>
+              <span className="text-xs text-stone-500 font-mono uppercase block">Cipher Standard</span>
+              <span className="text-lg font-mono font-extrabold text-stone-900">AES-256-GCM</span>
+              <span className="text-[10px] text-[#059669] block font-mono uppercase font-semibold">WebCrypto Hardware Accel</span>
             </div>
           </div>
         </div>
@@ -445,33 +467,33 @@ export default function App() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3 flex-1">
                 <div className="relative flex-1 max-w-md">
-                  <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     placeholder="Filter by file name or hash..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+                    className="w-full bg-white border border-[#D6D2C4] rounded-none pl-10 pr-4 py-2.5 text-xs text-stone-900 font-mono placeholder-stone-400 focus:outline-none focus:border-[#059669]"
                   />
                 </div>
 
                 {/* Algo Filter Pills */}
-                <div className="hidden lg:flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+                <div className="hidden lg:flex items-center bg-[#EBE7DC] p-1 rounded-none border border-[#D6D2C4] text-xs">
                   <button
                     onClick={() => setFilterAlgo('ALL')}
-                    className={`px-3 py-1.5 rounded-lg font-mono transition-colors ${filterAlgo === 'ALL' ? 'bg-slate-800 text-emerald-400 font-bold' : 'text-slate-400'}`}
+                    className={`px-3 py-1.5 rounded-none font-mono uppercase tracking-wider transition-colors ${filterAlgo === 'ALL' ? 'bg-[#059669] text-white font-bold' : 'text-stone-600 hover:text-stone-900'}`}
                   >
                     ALL
                   </button>
                   <button
                     onClick={() => setFilterAlgo('AES-256-GCM')}
-                    className={`px-3 py-1.5 rounded-lg font-mono transition-colors ${filterAlgo === 'AES-256-GCM' ? 'bg-slate-800 text-emerald-400 font-bold' : 'text-slate-400'}`}
+                    className={`px-3 py-1.5 rounded-none font-mono uppercase tracking-wider transition-colors ${filterAlgo === 'AES-256-GCM' ? 'bg-[#059669] text-white font-bold' : 'text-stone-600 hover:text-stone-900'}`}
                   >
                     AES-256-GCM
                   </button>
                   <button
                     onClick={() => setFilterAlgo('ChaCha20-Poly1305')}
-                    className={`px-3 py-1.5 rounded-lg font-mono transition-colors ${filterAlgo === 'ChaCha20-Poly1305' ? 'bg-slate-800 text-emerald-400 font-bold' : 'text-slate-400'}`}
+                    className={`px-3 py-1.5 rounded-none font-mono uppercase tracking-wider transition-colors ${filterAlgo === 'ChaCha20-Poly1305' ? 'bg-[#059669] text-white font-bold' : 'text-stone-600 hover:text-stone-900'}`}
                   >
                     ChaCha20
                   </button>
@@ -481,15 +503,15 @@ export default function App() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => showToast('Verified 100% GCM Authentication Tags')}
-                  className="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:border-slate-700 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-300 transition-colors"
+                  className="flex items-center gap-2 bg-[#EBE7DC] border border-[#D6D2C4] hover:border-stone-400 px-4 py-2.5 rounded-none text-xs font-mono uppercase tracking-wider font-semibold text-stone-700 transition-colors"
                 >
-                  <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+                  <RefreshCw className="w-3.5 h-3.5 text-[#059669]" />
                   <span>Verify Hashes</span>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('encrypt')}
-                  className="flex items-center gap-2 bg-emerald-500 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs hover:bg-emerald-400 transition-colors shadow-md"
+                  className="flex items-center gap-2 bg-[#059669] hover:bg-[#047857] text-white font-mono uppercase text-xs font-bold tracking-widest px-4 py-2.5 rounded-none transition-colors"
                 >
                   <Upload className="w-3.5 h-3.5" />
                   <span>Upload & Protect</span>
@@ -498,18 +520,18 @@ export default function App() {
             </div>
 
             {/* Vault Data Table */}
-            <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
-              <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+            <div className="bg-white rounded-none overflow-hidden border border-[#D6D2C4]">
+              <div className="px-6 py-4 border-b border-[#D6D2C4] flex items-center justify-between bg-[#F7F5F0]">
                 <div className="flex items-center gap-2">
-                  <FolderLock className="w-4 h-4 text-emerald-400" />
-                  <h2 className="font-semibold text-sm text-slate-100">Encrypted Enterprise Vault Payload Index</h2>
+                  <FolderLock className="w-4 h-4 text-[#059669]" />
+                  <h2 className="font-mono font-bold text-xs uppercase tracking-wider text-stone-900">Encrypted Enterprise Vault Payload Index</h2>
                 </div>
-                <span className="text-xs font-mono text-slate-400">Direct S3 Presigned URL Engine: <strong className="text-emerald-400">ACTIVE</strong></span>
+                <span className="text-xs font-mono text-stone-500 uppercase">Direct S3 Engine: <strong className="text-[#059669]">ACTIVE</strong></span>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-slate-900/90 text-slate-400 font-mono border-b border-slate-800 uppercase tracking-wider">
+                <table className="w-full text-left text-xs text-stone-700">
+                  <thead className="bg-[#EBE7DC] text-stone-600 font-mono border-b border-[#D6D2C4] uppercase tracking-wider">
                     <tr>
                       <th className="px-6 py-3.5">Filename</th>
                       <th className="px-6 py-3.5">Ciphertext Hash</th>
@@ -519,31 +541,31 @@ export default function App() {
                       <th className="px-6 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60">
+                  <tbody className="divide-y divide-[#D6D2C4]">
                     {filteredFiles.map((file) => (
-                      <tr key={file.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="px-6 py-4 font-semibold text-slate-200 flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                            <FileCheck className="w-4 h-4 text-emerald-400" />
+                      <tr key={file.id} className="hover:bg-[#EBE7DC]/50 transition-colors">
+                        <td className="px-6 py-4 font-semibold text-stone-900 flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-none bg-[#059669]/10 border border-[#059669]/20 flex items-center justify-center shrink-0">
+                            <FileCheck className="w-4 h-4 text-[#059669]" />
                           </div>
                           <div>
-                            <div className="font-semibold text-slate-200">{file.name}</div>
-                            <span className="text-[11px] text-slate-500 font-mono">{formatSize(file.sizeBytes)}</span>
+                            <div className="font-semibold text-stone-900">{file.name}</div>
+                            <span className="text-[11px] text-stone-500 font-mono">{formatSize(file.sizeBytes)}</span>
                           </div>
                         </td>
 
                         <td className="px-6 py-4 font-mono text-xs">
                           <button
                             onClick={() => copyToClipboard(file.hash, file.id)}
-                            className="bg-slate-900 border border-slate-800 hover:border-emerald-500/40 px-2.5 py-1 rounded text-slate-400 hover:text-emerald-400 flex items-center gap-1.5 transition-colors"
+                            className="bg-[#EBE7DC] border border-[#D6D2C4] hover:border-[#059669]/50 px-2.5 py-1 rounded-none text-stone-600 hover:text-[#059669] flex items-center gap-1.5 transition-colors"
                           >
                             <span>{file.hash}</span>
-                            {copiedId === file.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            {copiedId === file.id ? <Check className="w-3 h-3 text-[#059669]" /> : <Copy className="w-3 h-3" />}
                           </button>
                         </td>
 
                         <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-none text-[11px] font-mono font-medium bg-[#059669]/10 text-[#059669] border border-[#059669]/20 uppercase">
                             <Lock className="w-3 h-3" />
                             {file.algo}
                           </span>
@@ -551,17 +573,17 @@ export default function App() {
 
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 flex items-center justify-center">
-                              <Layers className="w-3 h-3 text-purple-400" />
+                            <div className="w-6 h-6 rounded-none bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+                              <Layers className="w-3 h-3 text-purple-600" />
                             </div>
                             <div>
-                              <div className="text-slate-300 font-mono text-xs">{file.stegoCover}</div>
-                              <div className="text-[10px] text-slate-500">{file.stegoCapacity}</div>
+                              <div className="text-stone-800 font-mono text-xs">{file.stegoCover}</div>
+                              <div className="text-[10px] text-stone-500 font-mono">{file.stegoCapacity}</div>
                             </div>
                           </div>
                         </td>
 
-                        <td className="px-6 py-4 font-mono text-xs text-slate-400">{file.uploadedAt}</td>
+                        <td className="px-6 py-4 font-mono text-xs text-stone-500">{file.uploadedAt}</td>
 
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -570,7 +592,7 @@ export default function App() {
                                 setActiveTab('decrypt');
                                 showToast(`Loaded ${file.name} for key extraction`);
                               }}
-                              className="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-emerald-500/40 text-slate-300 hover:text-emerald-400 transition-colors"
+                              className="p-2 rounded-none bg-[#EBE7DC] border border-[#D6D2C4] hover:border-[#059669]/50 text-stone-700 hover:text-[#059669] transition-colors"
                               title="Decrypt & Extract Key"
                             >
                               <Unlock className="w-4 h-4" />
@@ -580,7 +602,7 @@ export default function App() {
                                 setActiveShareFile(file);
                                 setShareEmail('');
                               }}
-                              className="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-cyan-500/40 text-slate-300 hover:text-cyan-400 transition-colors"
+                              className="p-2 rounded-none bg-[#EBE7DC] border border-[#D6D2C4] hover:border-cyan-600/50 text-stone-700 hover:text-cyan-600 transition-colors"
                               title="Share Link"
                             >
                               <Share2 className="w-4 h-4" />
@@ -590,7 +612,7 @@ export default function App() {
                                 setFiles(files.filter((f) => f.id !== file.id));
                                 showToast(`Deleted ${file.name}`);
                               }}
-                              className="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-rose-500/40 text-slate-300 hover:text-rose-400 transition-colors"
+                              className="p-2 rounded-none bg-[#EBE7DC] border border-[#D6D2C4] hover:border-rose-500/50 text-stone-700 hover:text-rose-600 transition-colors"
                               title="Delete Payload"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -604,7 +626,7 @@ export default function App() {
               </div>
 
               {filteredFiles.length === 0 && (
-                <div className="p-12 text-center text-slate-500 font-mono text-xs">
+                <div className="p-12 text-center text-stone-500 font-mono text-xs uppercase">
                   No encrypted items found matching query.
                 </div>
               )}
@@ -615,21 +637,21 @@ export default function App() {
         {/* TAB 2: ENCRYPT & EMBED PIPELINE */}
         {activeTab === 'encrypt' && (
           <div className="max-w-3xl mx-auto">
-            <div className="glass-panel p-6 sm:p-8 rounded-2xl border border-slate-800">
-              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-800">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                  <Lock className="w-5 h-5 text-emerald-400" />
+            <div className="bg-white p-6 sm:p-8 rounded-none border border-[#D6D2C4]">
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#D6D2C4]">
+                <div className="w-10 h-10 rounded-none bg-[#059669]/10 border border-[#059669]/20 flex items-center justify-center">
+                  <Lock className="w-5 h-5 text-[#059669]" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-100">Zero-Knowledge Encryptor & Stego Embedder</h2>
-                  <p className="text-xs font-mono text-slate-400">Client-Side WebWorker Crypto Pipeline</p>
+                  <h2 className="text-xl font-bold text-stone-900 font-mono uppercase tracking-tight">Zero-Knowledge Encryptor & Stego Embedder</h2>
+                  <p className="text-xs font-mono text-stone-500 uppercase">Client-Side WebWorker Crypto Pipeline</p>
                 </div>
               </div>
 
               <form onSubmit={handleEncryptSubmit} className="space-y-6">
                 {/* Step 1: File Upload */}
                 <div>
-                  <label className="block text-xs font-mono font-semibold uppercase text-slate-300 mb-2">
+                  <label className="block text-xs font-mono font-semibold uppercase text-stone-700 mb-2">
                     1. Select Secret Target File
                   </label>
                   <div
@@ -637,21 +659,21 @@ export default function App() {
                       const dummy = new File(['Confidential Enterprise Financial Audit 2026'], 'q3_financial_audit_confidential.pdf', { type: 'application/pdf' });
                       setTargetFile(dummy);
                     }}
-                    className="border-2 border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-900/60 p-6 rounded-2xl text-center cursor-pointer transition-colors"
+                    className="border-2 border-dashed border-[#D6D2C4] hover:border-[#059669] bg-[#EBE7DC]/40 p-6 rounded-none text-center cursor-pointer transition-colors"
                   >
                     {targetFile ? (
-                      <div className="flex items-center justify-center gap-3 text-emerald-400 font-semibold">
+                      <div className="flex items-center justify-center gap-3 text-[#059669] font-semibold">
                         <FileCheck className="w-6 h-6" />
-                        <div className="text-left">
-                          <span className="text-slate-100 block">{targetFile.name}</span>
-                          <span className="text-xs font-mono text-slate-400">{formatSize(targetFile.size)}</span>
+                        <div className="text-left font-mono">
+                          <span className="text-stone-900 block font-bold">{targetFile.name}</span>
+                          <span className="text-xs text-stone-500">{formatSize(targetFile.size)}</span>
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <Upload className="w-8 h-8 text-slate-500 mx-auto" />
-                        <p className="text-sm font-semibold text-slate-200">Click to select or drop secret payload file</p>
-                        <p className="text-xs text-slate-500 font-mono">Payload is encrypted inside browser memory prior to any transmission</p>
+                        <Upload className="w-8 h-8 text-stone-400 mx-auto" />
+                        <p className="text-sm font-mono font-bold uppercase text-stone-800">Click to select or drop secret payload file</p>
+                        <p className="text-xs text-stone-500 font-mono uppercase">Payload is encrypted inside browser memory prior to any transmission</p>
                       </div>
                     )}
                   </div>
@@ -660,7 +682,7 @@ export default function App() {
                 {/* Step 2: Key & Cipher Config */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-mono font-semibold uppercase text-slate-300 mb-2">
+                    <label className="block text-xs font-mono font-semibold uppercase text-stone-700 mb-2">
                       2. Master Passphrase
                     </label>
                     <input
@@ -668,18 +690,18 @@ export default function App() {
                       placeholder="Enter strong passphrase..."
                       value={passphrase}
                       onChange={(e) => setPassphrase(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50"
+                      className="w-full bg-white border border-[#D6D2C4] rounded-none px-4 py-2.5 text-xs text-stone-900 font-mono placeholder-stone-400 focus:outline-none focus:border-[#059669]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-mono font-semibold uppercase text-slate-300 mb-2">
+                    <label className="block text-xs font-mono font-semibold uppercase text-stone-700 mb-2">
                       Cipher Algorithm Standard
                     </label>
                     <select
                       value={selectedAlgo}
                       onChange={(e) => setSelectedAlgo(e.target.value as any)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 font-mono"
+                      className="w-full bg-white border border-[#D6D2C4] rounded-none px-4 py-2.5 text-xs text-stone-900 focus:outline-none focus:border-[#059669] font-mono"
                     >
                       <option value="AES-256-GCM">AES-256-GCM (Hardware Accel)</option>
                       <option value="ChaCha20-Poly1305">ChaCha20-Poly1305 (Mobile Optimized)</option>
@@ -689,7 +711,7 @@ export default function App() {
 
                 {/* Step 3: Stego Container Picker */}
                 <div>
-                  <label className="block text-xs font-mono font-semibold uppercase text-slate-300 mb-2">
+                  <label className="block text-xs font-mono font-semibold uppercase text-stone-700 mb-2">
                     3. Select Steganographic PNG Cover Image
                   </label>
                   <div className="grid grid-cols-3 gap-3">
@@ -701,15 +723,15 @@ export default function App() {
                       <div
                         key={img.id}
                         onClick={() => setSelectedCover(img.id)}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                        className={`p-3 rounded-none border cursor-pointer transition-all ${
                           selectedCover === img.id
-                            ? 'bg-emerald-500/10 border-emerald-500 text-emerald-300'
-                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                            ? 'bg-[#059669]/10 border-[#059669] text-[#059669]'
+                            : 'bg-white border-[#D6D2C4] text-stone-600 hover:border-stone-400'
                         }`}
                       >
-                        <Layers className="w-5 h-5 mb-1 text-emerald-400" />
-                        <div className="font-semibold text-xs text-slate-200 truncate">{img.name}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">{img.cap}</div>
+                        <Layers className="w-5 h-5 mb-1 text-purple-600" />
+                        <div className="font-mono font-bold text-xs text-stone-900 truncate uppercase">{img.name}</div>
+                        <div className="text-[10px] text-stone-500 font-mono">{img.cap}</div>
                       </div>
                     ))}
                   </div>
@@ -717,8 +739,8 @@ export default function App() {
 
                 {/* Live Progress Bar */}
                 {isEncrypting && (
-                  <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3 font-mono text-xs">
-                    <div className="flex items-center justify-between text-emerald-400 font-bold">
+                  <div className="bg-[#EBE7DC] border border-[#D6D2C4] p-4 rounded-none space-y-3 font-mono text-xs">
+                    <div className="flex items-center justify-between text-[#059669] font-bold uppercase">
                       <span className="flex items-center gap-2">
                         <RefreshCw className="w-4 h-4 animate-spin" />
                         Cryptographic Pipeline Active...
@@ -726,11 +748,11 @@ export default function App() {
                       <span>Step {encryptStep}/4</span>
                     </div>
 
-                    <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden">
-                      <div className="bg-gradient-to-r from-emerald-500 to-cyan-500 h-full transition-all duration-500" style={{ width: `${(encryptStep / 4) * 100}%` }}></div>
+                    <div className="w-full bg-[#D6D2C4] h-2 rounded-none overflow-hidden">
+                      <div className="bg-[#059669] h-full transition-all duration-500" style={{ width: `${(encryptStep / 4) * 100}%` }}></div>
                     </div>
 
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-stone-600 font-mono uppercase">
                       {encryptStep === 1 && 'Deriving 256-bit key via PBKDF2 & 16-byte salt...'}
                       {encryptStep === 2 && `Encrypting file stream with ${selectedAlgo}...`}
                       {encryptStep === 3 && `Hiding key bits into 1-bit LSB pixels of ${selectedCover}...`}
@@ -742,7 +764,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={isEncrypting}
-                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-bold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                  className="w-full py-3.5 rounded-none bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest transition-colors flex items-center justify-center gap-2"
                 >
                   <Lock className="w-4 h-4 stroke-[2.5]" />
                   <span>Execute Encrypt & Stego Embedding</span>
@@ -755,31 +777,31 @@ export default function App() {
         {/* TAB 3: EXTRACT & DECRYPT PIPELINE */}
         {activeTab === 'decrypt' && (
           <div className="max-w-3xl mx-auto">
-            <div className="glass-panel p-6 sm:p-8 rounded-2xl border border-slate-800 space-y-6">
-              <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-                  <Unlock className="w-5 h-5 text-cyan-400" />
+            <div className="bg-white p-6 sm:p-8 rounded-none border border-[#D6D2C4] space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-[#D6D2C4]">
+                <div className="w-10 h-10 rounded-none bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+                  <Unlock className="w-5 h-5 text-cyan-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-100">Key Extractor & Payload Decryptor</h2>
-                  <p className="text-xs font-mono text-slate-400">Reconstruct plaintext payload directly in memory</p>
+                  <h2 className="text-xl font-bold font-mono text-stone-900 uppercase tracking-tight">Key Extractor & Payload Decryptor</h2>
+                  <p className="text-xs font-mono text-stone-500 uppercase">Reconstruct plaintext payload directly in memory</p>
                 </div>
               </div>
 
               <form onSubmit={handleDecryptSubmit} className="space-y-5">
                 <div>
-                  <label className="block text-xs font-mono font-semibold uppercase text-slate-300 mb-2">
+                  <label className="block text-xs font-mono font-semibold uppercase text-stone-700 mb-2">
                     Upload Stego-Cover Image (PNG containing embedded LSB key)
                   </label>
-                  <div className="border-2 border-dashed border-slate-700 hover:border-cyan-500/50 bg-slate-900/60 p-6 rounded-2xl text-center cursor-pointer">
-                    <Layers className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
-                    <p className="text-sm font-semibold text-slate-200">Select Stego Container PNG</p>
-                    <p className="text-xs text-slate-500 font-mono mt-1">Default loaded: quantum_nebula_4k.png</p>
+                  <div className="border-2 border-dashed border-[#D6D2C4] hover:border-cyan-600/50 bg-[#EBE7DC]/40 p-6 rounded-none text-center cursor-pointer">
+                    <Layers className="w-8 h-8 text-cyan-600 mx-auto mb-2" />
+                    <p className="text-sm font-mono font-bold uppercase text-stone-900">Select Stego Container PNG</p>
+                    <p className="text-xs text-stone-500 font-mono mt-1 uppercase">Default loaded: quantum_nebula_4k.png</p>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono font-semibold uppercase text-slate-300 mb-1.5">
+                  <label className="block text-xs font-mono font-semibold uppercase text-stone-700 mb-1.5">
                     Decryption Passphrase
                   </label>
                   <input
@@ -788,14 +810,14 @@ export default function App() {
                     placeholder="Enter secret master passphrase..."
                     value={decryptPassphrase}
                     onChange={(e) => setDecryptPassphrase(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500/50"
+                    className="w-full bg-white border border-[#D6D2C4] rounded-none px-4 py-2.5 text-xs text-stone-900 font-mono placeholder-stone-400 focus:outline-none focus:border-[#059669]"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={isDecrypting}
-                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-bold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2"
+                  className="w-full py-3.5 rounded-none bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest transition-colors flex items-center justify-center gap-2"
                 >
                   <Unlock className="w-4 h-4 stroke-[2.5]" />
                   <span>Extract LSB Key & Decrypt Payload</span>
@@ -803,18 +825,18 @@ export default function App() {
               </form>
 
               {decryptResult && (
-                <div className="bg-slate-900 border border-emerald-500/30 p-5 rounded-2xl space-y-3">
-                  <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
+                <div className="bg-[#EBE7DC] border border-[#059669]/30 p-5 rounded-none space-y-3">
+                  <div className="flex items-center gap-2 text-[#059669] font-mono font-bold text-xs uppercase">
                     <CheckCircle2 className="w-5 h-5" />
                     <span>Payload Extracted & Checksum Verified</span>
                   </div>
-                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 space-y-1">
-                    <div><strong className="text-slate-400">File:</strong> {decryptResult.name} ({decryptResult.size})</div>
-                    <div className="break-all"><strong className="text-slate-400">SHA-256 Checksum:</strong> {decryptResult.checksum}</div>
+                  <div className="bg-white p-3 rounded-none border border-[#D6D2C4] font-mono text-xs text-stone-800 space-y-1">
+                    <div><strong className="text-stone-500">File:</strong> {decryptResult.name} ({decryptResult.size})</div>
+                    <div className="break-all"><strong className="text-stone-500">SHA-256 Checksum:</strong> {decryptResult.checksum}</div>
                   </div>
                   <button
                     onClick={() => showToast('Triggered client-side Blob download for decrypted payload')}
-                    className="w-full py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-2"
+                    className="w-full py-2.5 rounded-none bg-[#059669] text-white font-mono uppercase font-bold tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-[#047857] transition-colors"
                   >
                     <Download className="w-4 h-4" />
                     <span>Download Decrypted Payload File</span>
@@ -828,29 +850,29 @@ export default function App() {
         {/* TAB 4: SHARED ACCESS MANAGER */}
         {activeTab === 'shares' && (
           <div className="space-y-6">
-            <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
-              <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+            <div className="bg-white rounded-none overflow-hidden border border-[#D6D2C4]">
+              <div className="px-6 py-4 border-b border-[#D6D2C4] bg-[#F7F5F0] flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Share2 className="w-4 h-4 text-cyan-400" />
-                  <h2 className="font-semibold text-sm text-slate-100">Active Presigned Share Links</h2>
+                  <Share2 className="w-4 h-4 text-cyan-600" />
+                  <h2 className="font-mono font-bold text-xs uppercase tracking-wider text-stone-900">Active Presigned Share Links</h2>
                 </div>
               </div>
 
-              <div className="divide-y divide-slate-800/60">
+              <div className="divide-y divide-[#D6D2C4]">
                 {shares.map((share) => (
-                  <div key={share.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
-                    <div className="space-y-1">
-                      <div className="font-semibold text-slate-200 text-sm">{share.fileName}</div>
-                      <div className="text-slate-400 font-mono">
-                        Recipient: <span className="text-cyan-400">{share.recipient}</span> · Permission: <span className="text-emerald-400">{share.permission}</span>
+                  <div key={share.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs hover:bg-[#EBE7DC]/40 transition-colors">
+                    <div className="space-y-1 font-mono">
+                      <div className="font-bold text-stone-900 text-sm uppercase">{share.fileName}</div>
+                      <div className="text-stone-600">
+                        Recipient: <span className="text-cyan-700 font-semibold">{share.recipient}</span> · Permission: <span className="text-[#059669] font-semibold">{share.permission}</span>
                       </div>
-                      <div className="text-[11px] text-slate-500 font-mono">Expires in {share.expiresIn} · Access Count: {share.accessCount} times</div>
+                      <div className="text-[11px] text-stone-500">Expires in {share.expiresIn} · Access Count: {share.accessCount} times</div>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => showToast(`Revoked share link for ${share.recipient}`)}
-                        className="px-3 py-1.5 bg-slate-900 border border-slate-800 hover:border-rose-500/40 text-slate-400 hover:text-rose-400 rounded-lg transition-colors font-mono"
+                        className="px-3 py-1.5 bg-[#EBE7DC] border border-[#D6D2C4] hover:border-rose-500/40 text-stone-600 hover:text-rose-600 rounded-none transition-colors font-mono uppercase text-[11px] font-bold"
                       >
                         Revoke Access
                       </button>
@@ -864,16 +886,16 @@ export default function App() {
 
         {/* TAB 5: ENTERPRISE AUDIT LOGS */}
         {activeTab === 'audit' && (
-          <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
-            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <div className="bg-white rounded-none overflow-hidden border border-[#D6D2C4]">
+            <div className="px-6 py-4 border-b border-[#D6D2C4] bg-[#F7F5F0] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-purple-400" />
-                <h2 className="font-semibold text-sm text-slate-100">Enterprise Security Audit Logs</h2>
+                <History className="w-4 h-4 text-purple-600" />
+                <h2 className="font-mono font-bold text-xs uppercase tracking-wider text-stone-900">Enterprise Security Audit Logs</h2>
               </div>
             </div>
 
-            <table className="w-full text-left text-xs font-mono text-slate-300">
-              <thead className="bg-slate-900/90 text-slate-400 border-b border-slate-800">
+            <table className="w-full text-left text-xs font-mono text-stone-700">
+              <thead className="bg-[#EBE7DC] text-stone-600 border-b border-[#D6D2C4] uppercase tracking-wider">
                 <tr>
                   <th className="px-6 py-3.5">Event</th>
                   <th className="px-6 py-3.5">User</th>
@@ -882,15 +904,15 @@ export default function App() {
                   <th className="px-6 py-3.5">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/50">
+              <tbody className="divide-y divide-[#D6D2C4]">
                 {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-800/30">
-                    <td className="px-6 py-3.5 font-bold text-emerald-400">{log.event}</td>
-                    <td className="px-6 py-3.5 text-slate-300">{log.user}</td>
-                    <td className="px-6 py-3.5 text-slate-400">{log.detail}</td>
-                    <td className="px-6 py-3.5 text-slate-500">{log.time}</td>
+                  <tr key={log.id} className="hover:bg-[#EBE7DC]/50 transition-colors">
+                    <td className="px-6 py-3.5 font-bold text-[#059669]">{log.event}</td>
+                    <td className="px-6 py-3.5 text-stone-800">{log.user}</td>
+                    <td className="px-6 py-3.5 text-stone-600">{log.detail}</td>
+                    <td className="px-6 py-3.5 text-stone-500">{log.time}</td>
                     <td className="px-6 py-3.5">
-                      <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold">
+                      <span className="bg-[#059669]/10 text-[#059669] border border-[#059669]/20 px-2 py-0.5 rounded-none text-[10px] font-bold uppercase">
                         {log.status}
                       </span>
                     </td>
@@ -905,29 +927,29 @@ export default function App() {
 
       {/* SHARE MODAL */}
       {activeShareFile && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass-panel max-w-md w-full p-6 rounded-2xl space-y-4 border border-slate-800">
-            <h3 className="font-bold text-slate-100 text-sm">Create Presigned Share Link</h3>
-            <p className="text-xs text-slate-400 font-mono">Payload: {activeShareFile.name}</p>
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#F0EDE4] max-w-md w-full p-6 rounded-none space-y-4 border border-stone-900 shadow-2xl">
+            <h3 className="font-mono uppercase font-bold text-stone-900 text-sm">Create Presigned Share Link</h3>
+            <p className="text-xs text-stone-600 font-mono uppercase">Payload: {activeShareFile.name}</p>
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-mono text-slate-400 block mb-1">Recipient Work Email</label>
+                <label className="text-xs font-mono uppercase text-stone-600 block mb-1">Recipient Work Email</label>
                 <input
                   type="email"
                   placeholder="partner@enterprise.io"
                   value={shareEmail}
                   onChange={(e) => setShareEmail(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50"
+                  className="w-full bg-white border border-[#D6D2C4] rounded-none px-3 py-2 text-xs text-stone-900 font-mono placeholder-stone-400 focus:outline-none focus:border-[#059669]"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-mono text-slate-400 block mb-1">Link Expiry Duration</label>
+                <label className="text-xs font-mono uppercase text-stone-600 block mb-1">Link Expiry Duration</label>
                 <select
                   value={shareExpiry}
                   onChange={(e) => setShareExpiry(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 font-mono"
+                  className="w-full bg-white border border-[#D6D2C4] rounded-none px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-[#059669] font-mono"
                 >
                   <option value="24 hours">24 hours</option>
                   <option value="7 days">7 days</option>
@@ -936,19 +958,19 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-2 font-mono uppercase text-xs font-bold">
               <button
                 onClick={() => {
                   showToast('Presigned share link generated & dispatched!');
                   setActiveShareFile(null);
                 }}
-                className="flex-1 py-2.5 bg-emerald-500 text-slate-950 font-bold rounded-xl text-xs hover:bg-emerald-400 transition-colors"
+                className="flex-1 py-2.5 bg-[#059669] hover:bg-[#047857] text-white rounded-none transition-colors"
               >
                 Generate & Send Link
               </button>
               <button
                 onClick={() => setActiveShareFile(null)}
-                className="py-2.5 px-4 bg-slate-800 text-slate-300 font-bold rounded-xl text-xs hover:bg-slate-700 transition-colors"
+                className="py-2.5 px-4 bg-[#EBE7DC] border border-[#D6D2C4] text-stone-700 rounded-none hover:bg-[#D6D2C4] transition-colors"
               >
                 Cancel
               </button>
@@ -958,11 +980,11 @@ export default function App() {
       )}
 
       {/* FOOTER */}
-      <footer className="border-t border-slate-800/80 py-6 bg-[#090D16]/90">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-slate-500">
+      <footer className="border-t border-[#D6D2C4] py-6 bg-[#EBE7DC]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-stone-500 uppercase">
           <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-emerald-400" />
-            <span>StegaVault Enterprise v2.4 · Zero-Knowledge Cryptographic Storage Engine</span>
+            <Shield className="w-4 h-4 text-[#059669]" />
+            <span>SecureCloud Enterprise v2.4 · Zero-Knowledge Cryptographic Storage Engine</span>
           </div>
           <div>AES-256-GCM · LSB Steganography · Presigned Cloud Sync</div>
         </div>
@@ -970,3 +992,29 @@ export default function App() {
     </div>
   );
 }
+
+// ─── Root Export with Router ──────────────────────────────────────────────────
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/auth/callback" element={<AuthCallbackWrapper />} />
+        <Route path="/*" element={<AppInner />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+// Wrapper that gives AuthCallback access to AppInner's state via a shared approach:
+// We use a simple redirect pattern — AuthCallback reads the URL params and
+// passes them up; AppInner catches them on navigate('/').
+function AuthCallbackWrapper() {
+  const navigate = useNavigate();
+  const handleUser = (u: OAuthUser) => {
+    // Store in sessionStorage so AppInner can pick it up after navigate
+    sessionStorage.setItem('oauth_user', JSON.stringify(u));
+    navigate('/');
+  };
+  return <AuthCallback onLoginSuccess={handleUser} />;
+}
+

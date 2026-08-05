@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Shield,
   Lock,
@@ -8,25 +8,20 @@ import {
   Cpu,
   Server,
   Zap,
-  Eye,
-  EyeOff,
-  AlertCircle,
-  ArrowRight,
   CheckCircle2,
   Terminal,
   FileCheck
 } from 'lucide-react';
+import { AuthModal } from './AuthModal';
+import type { OAuthUser } from '../lib/oauth';
 
 interface LandingPageProps {
-  onLoginSuccess: (email: string) => void;
+  onLoginSuccess: (user: OAuthUser) => void;
 }
 
 export function LandingPage({ onLoginSuccess }: LandingPageProps) {
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
   // Interactive Stego Visualizer State
   const [stegoBitIndex, setStegoBitIndex] = useState(0);
@@ -137,38 +132,12 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
 
   const currentBitInfo = sampleBits[stegoBitIndex % sampleBits.length];
 
-  const handleOpenAuth = () => {
-    setAuthError(null);
-    setShowLoginModal(true);
-  };
-
-  const handleAuthSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError(null);
-
-    if (!loginEmail || !loginEmail.includes('@')) {
-      setAuthError('Please enter a valid work email address');
-      return;
-    }
-
-    if (!loginPassword || loginPassword.length < 6) {
-      setAuthError('Master Key Passphrase must be at least 6 characters');
-      return;
-    }
-
-    setShowLoginModal(false);
-    onLoginSuccess(loginEmail);
-  };
+  const openLogin = () => { setAuthMode('login'); setShowAuthModal(true); };
+  const openSignup = () => { setAuthMode('signup'); setShowAuthModal(true); };
 
   const handleHeroSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    handleOpenAuth();
-  };
-
-  const autofillDemoCreds = () => {
-    setLoginEmail('alex.mercer@enterprise.io');
-    setLoginPassword('MasterKey#2026!');
-    setAuthError(null);
+    openLogin();
   };
 
   return (
@@ -191,7 +160,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
             <div className="w-8 h-8 rounded-none bg-stone-950 flex items-center justify-center text-stone-100 font-mono font-bold text-xs">
               SC
             </div>
-            <span className="font-mono text-lg font-black tracking-tight text-stone-950 uppercase">
+            <span className="font-brand text-xl font-black tracking-wider text-stone-950 uppercase">
               SECURE<span className="text-[#059669]">CLOUD</span>
             </span>
           </div>
@@ -204,20 +173,22 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
             <a href="#security-spec" className="hover:text-stone-950 transition-colors">Security Spec</a>
           </nav>
 
-          {/* CTA Buttons */}
-          <div className="flex items-center gap-4">
+          {/* CTA Buttons — Login + Sign Up */}
+          <div className="flex items-center gap-3">
             <button
-              onClick={handleOpenAuth}
-              className="text-xs font-mono tracking-wider text-stone-700 hover:text-stone-950 uppercase px-2 py-1"
+              id="nav-login"
+              onClick={openLogin}
+              className="text-xs font-mono tracking-wider text-stone-700 hover:text-stone-950 uppercase px-2 py-1 transition-colors"
             >
-              Sign In
+              Log In
             </button>
             <button
-              onClick={handleOpenAuth}
-              className="bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest px-5 py-2.5 rounded-none transition-colors flex items-center gap-2"
+              id="nav-signup"
+              onClick={openSignup}
+              className="bg-[#059669] hover:bg-[#047857] text-white font-brand text-xs uppercase font-bold tracking-widest px-5 py-2.5 rounded-none transition-colors flex items-center gap-2"
             >
               <Lock className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Launch Demo Vault</span>
+              <span>Sign Up Free</span>
             </button>
           </div>
         </div>
@@ -263,45 +234,44 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
               <span>AUDIT LOGS</span>
             </div>
 
-            {/* Input Field + Button Combo */}
-            <form onSubmit={handleHeroSubmit} className="pt-2">
-              <div className="flex flex-col sm:flex-row items-stretch gap-0 max-w-xl border-2 border-stone-950 p-1 bg-white shadow-none">
-                <input
-                  type="text"
-                  placeholder="Enter secret passphrase to test..."
-                  value={inputPassphrase}
-                  onChange={(e) => setInputPassphrase(e.target.value)}
-                  className="flex-1 bg-transparent px-4 py-3 text-sm text-stone-950 font-mono focus:outline-none placeholder:text-stone-400 border-none"
-                />
-                <button
-                  type="submit"
-                  className="bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest px-6 py-3.5 flex items-center justify-center gap-2 transition-colors shrink-0"
-                >
-                  <span>LAUNCH LIVE DEMO</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
+            {/* Two CTA Buttons */}
+            <div className="pt-2 flex flex-col sm:flex-row gap-3">
+              <button
+                id="hero-signup"
+                onClick={openSignup}
+                className="bg-[#059669] hover:bg-[#047857] text-white font-brand text-xs uppercase font-bold tracking-widest px-7 py-3.5 flex items-center justify-center gap-2 transition-colors"
+              >
+                <Lock className="w-4 h-4 stroke-[2.5]" />
+                <span>Get Started Free</span>
+              </button>
+              <button
+                id="hero-login"
+                onClick={openLogin}
+                className="border-2 border-stone-950 text-stone-950 hover:bg-stone-950 hover:text-white font-brand text-xs uppercase font-bold tracking-widest px-7 py-3.5 flex items-center justify-center gap-2 transition-all"
+              >
+                <span>Log In</span>
+              </button>
+            </div>
 
-              {/* Disclaimer Text */}
-              <p className="font-mono text-[11px] text-stone-500 mt-2.5 flex items-center gap-2">
-                <span>NO REGISTRATION REQUIRED</span>
-                <span className="text-[#059669]">·</span>
-                <span>100% CLIENT-SIDE CRYPTO</span>
-                <span className="text-[#059669]">·</span>
-                <span>ZERO SERVER LOGS</span>
-              </p>
-            </form>
+            {/* Disclaimer Text */}
+            <p className="font-mono text-[11px] text-stone-500 flex items-center gap-2">
+              <span>NO CREDIT CARD</span>
+              <span className="text-[#059669]">·</span>
+              <span>100% CLIENT-SIDE CRYPTO</span>
+              <span className="text-[#059669]">·</span>
+              <span>ZERO SERVER LOGS</span>
+            </p>
 
           </div>
 
           {/* HERO RIGHT COLUMN: DARK LIVE DEMO MOCKUP PANEL */}
           <div className="lg:col-span-5">
-            <div className="bg-stone-950 text-stone-100 rounded-2xl border border-stone-800 p-6 sm:p-7 relative shadow-2xl space-y-6">
+            <div className="bg-stone-950 text-stone-100 rounded-none border border-stone-800 p-6 sm:p-7 relative shadow-2xl space-y-6">
               
               {/* Terminal UI Top Status Bar */}
               <div className="flex items-center justify-between font-mono text-xs border-b border-stone-800 pb-4">
                 <div className="flex items-center gap-2 text-[#059669] font-bold tracking-wider uppercase">
-                  <span className="w-2 h-2 rounded-full bg-[#059669] animate-pulse" />
+                  <span className="w-2 h-2 rounded-none bg-[#059669] animate-pulse" />
                   <span>{currentHeroStep.stepLabel}</span>
                 </div>
                 <div className="text-stone-400">
@@ -331,7 +301,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
               </div>
 
               {/* Nested White/Light Card Showing Sample Output Content */}
-              <div className="bg-stone-100 text-stone-950 p-4 rounded-xl border border-stone-300 relative shadow-sm space-y-3">
+              <div className="bg-stone-100 text-stone-950 p-4 rounded-none border border-stone-300 relative shadow-sm space-y-3">
                 
                 {/* Small Rotated Stamp Badge */}
                 <div className="absolute -top-3 right-3 bg-[#059669] text-white font-mono text-[10px] uppercase font-bold tracking-widest px-2.5 py-1 -rotate-3 shadow-md">
@@ -339,7 +309,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
                 </div>
 
                 <div className="flex items-center gap-3 border-b border-stone-200 pb-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-stone-900 text-white flex items-center justify-center font-mono font-bold text-xs">
+                  <div className="w-8 h-8 rounded-none bg-stone-900 text-white flex items-center justify-center font-mono font-bold text-xs">
                     {currentHeroStep.fileTypeIcon}
                   </div>
                   <div>
@@ -372,7 +342,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
               </div>
 
               {/* Terminal Logs Footer inside Card */}
-              <div className="bg-stone-900 p-3 rounded-lg border border-stone-800 font-mono text-[11px] text-stone-400 flex items-center justify-between">
+              <div className="bg-stone-900 p-3 rounded-none border border-stone-800 font-mono text-[11px] text-stone-400 flex items-center justify-between">
                 <div className="flex items-center gap-2 truncate">
                   <Terminal className="w-3.5 h-3.5 text-[#059669] shrink-0" />
                   <span className="truncate">{currentHeroStep.terminalLog}</span>
@@ -395,7 +365,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
                   ‹ PREV STEP
                 </button>
 
-                {/* Dot Pagination Indicators */}
+                {/* Square Pagination Indicators */}
                 <div className="flex items-center justify-center gap-2">
                   {heroDemoSteps.map((_, idx) => (
                     <button
@@ -404,8 +374,8 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
                       onClick={() => setHeroStepIndex(idx)}
                       className={`transition-all ${
                         heroStepIndex === idx
-                          ? 'w-3 h-3 rounded-full bg-[#059669] ring-2 ring-[#059669]/40'
-                          : 'w-2.5 h-2.5 rounded-full bg-stone-700 hover:bg-stone-500'
+                          ? 'w-3 h-3 rounded-none bg-[#059669] ring-2 ring-[#059669]/40'
+                          : 'w-2.5 h-2.5 rounded-none bg-stone-700 hover:bg-stone-500'
                       }`}
                       title={`Step ${idx + 1}`}
                     />
@@ -628,13 +598,23 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
           <p className="text-xs text-stone-400 max-w-xl mx-auto font-mono">
             Experience zero-knowledge client-side encryption and spatial LSB steganography live in action.
           </p>
-          <button
-            onClick={handleOpenAuth}
-            className="inline-flex items-center gap-2 bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest px-8 py-4 transition-colors"
-          >
-            <Lock className="w-4 h-4 stroke-[2.5]" />
-            <span>LAUNCH LIVE WORKSPACE NOW</span>
-          </button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button
+              id="cta-signup"
+              onClick={openSignup}
+              className="inline-flex items-center gap-2 bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest px-8 py-4 transition-colors"
+            >
+              <Lock className="w-4 h-4 stroke-[2.5]" />
+              <span>GET STARTED FREE</span>
+            </button>
+            <button
+              id="cta-login"
+              onClick={openLogin}
+              className="inline-flex items-center gap-2 bg-transparent border border-stone-600 hover:border-white text-stone-300 hover:text-white font-mono text-xs uppercase font-bold tracking-widest px-8 py-4 transition-colors"
+            >
+              <span>LOG IN TO VAULT</span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -649,91 +629,21 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
         </div>
       </footer>
 
-      {/* STRICT MANDATORY AUTHENTICATION MODAL */}
-      {showLoginModal && (
-        <div className="fixed inset-0 bg-stone-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white max-w-md w-full p-8 border-2 border-stone-950 relative space-y-6 shadow-2xl">
-            <button
-              onClick={() => setShowLoginModal(false)}
-              className="absolute right-4 top-4 text-stone-500 hover:text-stone-950 font-mono text-xs font-bold uppercase"
-            >
-              [ ✕ CLOSE ]
-            </button>
-
-            <div className="text-center space-y-2">
-              <div className="w-12 h-12 bg-stone-950 text-white flex items-center justify-center mx-auto mb-3 font-mono font-bold text-sm">
-                SC
-              </div>
-              <h3 className="font-mono font-black text-stone-950 text-xl uppercase tracking-tight">Authentication Required</h3>
-              <p className="text-xs text-stone-600 font-mono">Enter Master Passphrase & Work Email</p>
-            </div>
-
-            {authError && (
-              <div className="bg-rose-50 border border-rose-400 p-3 flex items-center gap-2 text-rose-700 text-xs font-mono">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-mono font-bold text-stone-800 uppercase mb-1">Work Email Address</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="user@enterprise.io"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  className="w-full bg-stone-100 border border-stone-300 px-4 py-2.5 text-xs text-stone-950 font-mono focus:outline-none focus:border-[#059669]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-mono font-bold text-stone-800 uppercase mb-1">Master Key Passphrase</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    placeholder="Enter master passphrase..."
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    className="w-full bg-stone-100 border border-stone-300 px-4 py-2.5 text-xs text-stone-950 font-mono focus:outline-none focus:border-[#059669]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-950"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-[11px] text-stone-500 font-mono pt-1">
-                <span>Min passphrase length: 6</span>
-                <button
-                  type="button"
-                  onClick={autofillDemoCreds}
-                  className="text-[#059669] font-bold hover:underline"
-                >
-                  Use Demo Creds
-                </button>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3.5 bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest flex items-center justify-center gap-2 transition-colors"
-              >
-                <Lock className="w-4 h-4 stroke-[2.5]" />
-                <span>AUTHENTICATE & ACCESS WORKSPACE</span>
-              </button>
-            </form>
-
-            <div className="pt-4 border-t border-stone-200 text-center text-[10px] text-stone-500 font-mono">
-              Session is encrypted locally with PBKDF2 key derivation.
-            </div>
-          </div>
-        </div>
+      {/* AUTH MODAL */}
+      {showAuthModal && (
+        <AuthModal
+          initialMode={authMode}
+          onClose={() => setShowAuthModal(false)}
+          onEmailLogin={(email, _password) => {
+            setShowAuthModal(false);
+            onLoginSuccess({
+              email,
+              name: email.split('@')[0].replace(/[._]/g, ' '),
+              avatar: null,
+              provider: 'email',
+            });
+          }}
+        />
       )}
 
     </div>
