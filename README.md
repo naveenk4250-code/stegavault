@@ -238,7 +238,7 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 - GitHub: [@naveenk4250-code](https://github.com/naveenk4250-code)
 
   
-- Live Project: [stegavault-5l5qa68w1-naveen-k1.vercel.app](https://stegavault-5l5qa68w1-naveen-k1.vercel.app)
+- Live Project: [stegavault-5l5qa68w1-naveen-k1.vercel.app](https://stegavault-web.vercel.app?_vercel_share=OrfbTR3SdKqhlP0OqIUhbRfNrqEteWov)
 
 ---
 
