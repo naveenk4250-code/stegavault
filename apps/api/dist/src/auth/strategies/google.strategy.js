@@ -11,16 +11,19 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GoogleStrategy = void 0;
 const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
 const passport_1 = require("@nestjs/passport");
 const passport_google_oauth20_1 = require("passport-google-oauth20");
 let GoogleStrategy = class GoogleStrategy extends (0, passport_1.PassportStrategy)(passport_google_oauth20_1.Strategy, 'google') {
-    constructor() {
+    config;
+    constructor(config) {
         super({
-            clientID: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-            callbackURL: process.env.GOOGLE_CALLBACK_URL,
+            clientID: config.get('GOOGLE_CLIENT_ID'),
+            clientSecret: config.get('GOOGLE_CLIENT_SECRET'),
+            callbackURL: config.get('GOOGLE_CALLBACK_URL'),
             scope: ['email', 'profile'],
         });
+        this.config = config;
     }
     async validate(accessToken, refreshToken, profile, done) {
         const { name, emails, photos } = profile;
@@ -37,6 +40,6 @@ let GoogleStrategy = class GoogleStrategy extends (0, passport_1.PassportStrateg
 exports.GoogleStrategy = GoogleStrategy;
 exports.GoogleStrategy = GoogleStrategy = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [])
+    __metadata("design:paramtypes", [config_1.ConfigService])
 ], GoogleStrategy);
 //# sourceMappingURL=google.strategy.js.map

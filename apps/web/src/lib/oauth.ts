@@ -1,16 +1,6 @@
 // ─── OAuth Provider Config ─────────────────────────────────────────────────
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
-
 export type OAuthProvider = 'google' | 'discord' | 'linkedin';
-
-/** Redirects the browser to the backend OAuth initiation URL for the given provider */
-export function initiateOAuth(provider: OAuthProvider): void {
-  const url = `${API_BASE}/auth/oauth/${provider}`;
-  window.location.href = url;
-}
-
-// ─── Callback Parser ───────────────────────────────────────────────────────
 
 export interface OAuthUser {
   email: string;
@@ -19,9 +9,34 @@ export interface OAuthUser {
   provider: OAuthProvider | string;
 }
 
+// ─── Google Client-side OAuth ──────────────────────────────────────────────
+
+/**
+ * Called by @react-oauth/google after a successful login.
+ * Fetches user profile from Google's userinfo endpoint with the access token.
+ */
+export async function fetchGoogleUser(accessToken: string): Promise<OAuthUser> {
+  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!res.ok) throw new Error('Failed to fetch Google user info');
+
+  const data = await res.json();
+
+  return {
+    email: data.email ?? '',
+    name: data.name ?? data.email ?? '',
+    avatar: data.picture ?? null,
+    provider: 'google',
+  };
+}
+
+// ─── Callback Parser (legacy – kept for future backend flows) ──────────────
+
 /**
  * Parses user info from the query string on /auth/callback
- * The backend redirects to: /auth/callback?email=x&name=x&avatar=x&provider=x
+ * Used when a backend redirects to: /auth/callback?email=x&name=x&avatar=x&provider=x
  */
 export function parseOAuthCallback(): OAuthUser | null {
   const params = new URLSearchParams(window.location.search);

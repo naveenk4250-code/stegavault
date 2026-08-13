@@ -1,12 +1,14 @@
-    import { useState } from 'react';
+import { useState } from 'react';
 import { Lock, Eye, EyeOff, AlertCircle, X } from 'lucide-react';
-import { initiateOAuth } from '../lib/oauth';
+import { useGoogleLogin } from '@react-oauth/google';
+import { fetchGoogleUser, type OAuthUser } from '../lib/oauth';
 import { AnimatedOAuthButton } from './AnimatedOAuthButton';
 
 interface AuthModalProps {
   initialMode?: 'login' | 'signup';
   onClose: () => void;
   onEmailLogin: (email: string, password: string) => void;
+  onOAuthSuccess?: (user: OAuthUser) => void;
 }
 
 // ─── Brand SVG Icons ────────────────────────────────────────────────────────
@@ -52,12 +54,13 @@ function LinkedInIcon() {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function AuthModal({ initialMode = 'login', onClose, onEmailLogin }: AuthModalProps) {
+export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAuthSuccess }: AuthModalProps) {
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [oauthLoading, setOauthLoading] = useState(false);
 
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,8 +78,32 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin }: Auth
     onEmailLogin(email, password);
   };
 
+  // ─── Google OAuth (client-side, no backend required) ─────────────────────
+  const loginWithGoogle = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        setOauthLoading(true);
+        setAuthError(null);
+        const user = await fetchGoogleUser(tokenResponse.access_token);
+        if (onOAuthSuccess) onOAuthSuccess(user);
+        onClose();
+      } catch {
+        setAuthError('Google sign-in failed. Please try again.');
+      } finally {
+        setOauthLoading(false);
+      }
+    },
+    onError: () => {
+      setAuthError('Google sign-in was cancelled or failed.');
+    },
+  });
+
   const handleOAuth = (provider: 'google' | 'discord' | 'linkedin') => {
-    initiateOAuth(provider);
+    if (provider === 'google') {
+      loginWithGoogle();
+    } else {
+      setAuthError(`${provider.charAt(0).toUpperCase() + provider.slice(1)} login coming soon.`);
+    }
   };
 
   return (
@@ -149,10 +176,10 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin }: Auth
               <AnimatedOAuthButton
                 provider="google"
                 onClick={() => handleOAuth('google')}
-                className="w-full text-xs font-mono font-bold uppercase tracking-wider"
+                className={`w-full text-xs font-mono font-bold uppercase tracking-wider ${oauthLoading ? 'opacity-60 pointer-events-none' : ''}`}
               >
                 <GoogleIcon />
-                <span>{mode === 'login' ? 'Continue' : 'Sign up'} with Google</span>
+                <span>{oauthLoading ? 'Signing in...' : (mode === 'login' ? 'Continue' : 'Sign up')} with Google</span>
               </AnimatedOAuthButton>
 
               <AnimatedOAuthButton

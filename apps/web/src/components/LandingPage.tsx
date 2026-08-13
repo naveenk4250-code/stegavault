@@ -645,6 +645,10 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
               provider: 'email',
             });
           }}
+          onOAuthSuccess={(user) => {
+            setShowAuthModal(false);
+            onLoginSuccess(user);
+          }}
         />
       )}
 
