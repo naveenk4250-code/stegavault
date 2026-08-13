@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Lock, Eye, EyeOff, AlertCircle, X } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
-import { fetchGoogleUser, type OAuthUser } from '../lib/oauth';
+import { fetchGoogleUser, initiateDiscordOAuth, type OAuthUser } from '../lib/oauth';
 import { AnimatedOAuthButton } from './AnimatedOAuthButton';
 
 interface AuthModalProps {
@@ -101,8 +101,10 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
   const handleOAuth = (provider: 'google' | 'discord' | 'linkedin') => {
     if (provider === 'google') {
       loginWithGoogle();
+    } else if (provider === 'discord') {
+      initiateDiscordOAuth(); // redirects to Discord → returns to /auth/callback#access_token=...
     } else {
-      setAuthError(`${provider.charAt(0).toUpperCase() + provider.slice(1)} login coming soon.`);
+      setAuthError('LinkedIn login coming soon.');
     }
   };
 
