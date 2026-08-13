@@ -15,8 +15,15 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('should return API status object', () => {
+      const status = appController.getApiStatus();
+      expect(status).toMatchObject({
+        name: 'SecureCloud Enterprise API',
+        version: expect.any(String),
+        status: 'ONLINE',
+        timestamp: expect.any(String),
+        endpoints: expect.any(Object),
+      });
     });
   });
 });

@@ -25,6 +25,7 @@ import {
   Layers,
   Plus
 } from 'lucide-react';
+import { ThemeToggle } from "./components/ThemeToggle";
 
 // --- PRODUCTION MOCK DATA ---
 const INITIAL_VAULT_FILES = [
@@ -294,7 +295,7 @@ function AppInner() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           
           {/* Logo & Status */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('vault')}>
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('vault')}>
             <div className="w-8 h-8 rounded-none bg-stone-950 flex items-center justify-center text-stone-100 font-mono font-bold text-xs">
               SC
             </div>
@@ -370,7 +371,8 @@ function AppInner() {
           </nav>
 
           {/* Right Action Button & Profile */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
             <button
               onClick={() => setActiveTab('encrypt')}
               className="flex items-center gap-2 bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest px-4 py-2 rounded-none transition-colors"

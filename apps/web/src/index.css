@@ -2,10 +2,146 @@
 
 @layer base {
   body {
-    background-color: #F0EDE4;
-    color: #1C1917;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
+}
+
+:root {
+  --bg-primary: #F0EDE4;
+  --bg-secondary: #EBE7DC;
+  --bg-tertiary: #F7F5F0;
+  --bg-card: #ffffff;
+  --text-primary: #1C1917;
+  --text-secondary: #57534e;
+  --text-muted: #78716c;
+  --border-primary: #1C1917;
+  --border-secondary: #D6D2C4;
+  --accent-emerald: #059669;
+  --shadow-color: #1C1917;
+  
+  --toggle-bg: #ffffff;
+  --toggle-border: #1C1917;
+  --toggle-knob: #fde881;
+}
+
+.dark-mode {
+  --bg-primary: #12110f;
+  --bg-secondary: #1c1917;
+  --bg-tertiary: #181615;
+  --bg-card: #1f1c1a;
+  --text-primary: #f5f5f4;
+  --text-secondary: #d6d3d1;
+  --text-muted: #a8a29e;
+  --border-primary: #f5f5f4;
+  --border-secondary: #3a3530;
+  --accent-emerald: #10b981;
+  --shadow-color: #f5f5f4;
+  
+  --toggle-bg: #1c1917;
+  --toggle-border: #f5f5f4;
+  --toggle-knob: #fde881;
+}
+
+/* Apply CSS variables dynamically under dark-mode */
+.dark-mode {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.dark-mode body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Override existing hardcoded Tailwind bg, text, border classes in dark-mode */
+.dark-mode .bg-\[\#F0EDE4\] {
+  background-color: var(--bg-primary) !important;
+}
+
+.dark-mode .bg-\[\#F0EDE4\]\/95 {
+  background-color: rgba(18, 17, 15, 0.95) !important;
+}
+
+.dark-mode .bg-\[\#EBE7DC\] {
+  background-color: var(--bg-secondary) !important;
+}
+
+.dark-mode .bg-\[\#EBE7DC\]\/40 {
+  background-color: rgba(28, 25, 23, 0.4) !important;
+}
+
+.dark-mode .bg-\[\#EBE7DC\]\/50 {
+  background-color: rgba(28, 25, 23, 0.5) !important;
+}
+
+.dark-mode .bg-\[\#F7F5F0\] {
+  background-color: var(--bg-tertiary) !important;
+}
+
+.dark-mode .bg-white {
+  background-color: var(--bg-card) !important;
+}
+
+.dark-mode .bg-white\/60 {
+  background-color: rgba(31, 28, 26, 0.6) !important;
+}
+
+.dark-mode .bg-stone-50 {
+  background-color: var(--bg-secondary) !important;
+}
+
+.dark-mode .bg-stone-100 {
+  background-color: var(--bg-secondary) !important;
+}
+
+.dark-mode .text-stone-900,
+.dark-mode .text-stone-950 {
+  color: var(--text-primary) !important;
+}
+
+.dark-mode .text-stone-800 {
+  color: var(--text-primary) !important;
+}
+
+.dark-mode .text-stone-700,
+.dark-mode .text-stone-600 {
+  color: var(--text-secondary) !important;
+}
+
+.dark-mode .text-stone-500,
+.dark-mode .text-stone-400 {
+  color: var(--text-muted) !important;
+}
+
+.dark-mode .border-\[\#D6D2C4\] {
+  border-color: var(--border-secondary) !important;
+}
+
+.dark-mode .border-stone-950 {
+  border-color: var(--border-primary) !important;
+}
+
+.dark-mode .divide-\[\#D6D2C4\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border-secondary) !important;
+}
+
+.dark-mode .divide-stone-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border-secondary) !important;
+}
+
+.dark-mode .hover\:bg-\[\#E5E1D8\]:hover {
+  background-color: var(--bg-secondary) !important;
+}
+
+.dark-mode .hover\:bg-stone-50:hover {
+  background-color: var(--bg-secondary) !important;
+}
+
+.dark-mode .hover\:border-stone-400:hover {
+  border-color: var(--text-muted) !important;
 }
 
 .font-serif-italic {
@@ -20,23 +156,23 @@
 
 /* Retro Editorial Aesthetics */
 .cream-bg {
-  background-color: #F0EDE4;
+  background-color: var(--bg-primary);
 }
 
 .border-editorial {
-  border-color: #D6D2C4;
+  border-color: var(--border-secondary);
 }
 
 .bg-accent-emerald {
-  background-color: #059669;
+  background-color: var(--accent-emerald);
 }
 
 .text-accent-emerald {
-  color: #059669;
+  color: var(--accent-emerald);
 }
 
 .border-accent-emerald {
-  border-color: #059669;
+  border-color: var(--accent-emerald);
 }
 
 /* Custom Scrollbar */
@@ -45,13 +181,208 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #F0EDE4;
+  background: var(--bg-primary);
 }
 ::-webkit-scrollbar-thumb {
   background: #A8A29E;
   border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #059669;
+  background: var(--accent-emerald);
 }
 
+/* ThemeToggle checkbox styling */
+.theme-toggle .checkbox-wrapper-41 {
+  --size: 32px;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.theme-toggle .checkbox-wrapper-41 input[type='checkbox'] {
+  -webkit-appearance: none;
+  width: var(--size);
+  height: calc(var(--size) / 2);
+  background-color: var(--toggle-bg);
+  border: 3px solid var(--toggle-border);
+  border-radius: 30px 100px 100px 100px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  outline: none;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.theme-toggle .checkbox-wrapper-41 input[type='checkbox']::before {
+  content: '';
+  position: absolute;
+  width: calc(var(--size) / 2);
+  height: calc(var(--size) / 2);
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) scale(0.9);
+  border: 3px solid var(--toggle-border);
+  border-radius: 30px 100px 100px 100px;
+  background-color: var(--toggle-knob);
+  transition: all 0.3s ease;
+}
+
+.theme-toggle .checkbox-wrapper-41 input[type='checkbox']:checked {
+  background-color: var(--toggle-knob);
+}
+
+.theme-toggle .checkbox-wrapper-41 input[type='checkbox']:checked::before {
+  left: 50%;
+  background-color: var(--toggle-bg);
+}
+
+/* Custom Neo-brutalist Styling */
+
+/* Buttons & Inputs */
+.oauth-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  width: 100%;
+  border-radius: 0;
+  border: 2px solid var(--border-primary);
+  background-color: var(--bg-card);
+  box-shadow: 4px 4px 0 0 var(--border-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 250ms ease;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.oauth-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0;
+  background-color: var(--accent-emerald);
+  z-index: -1;
+  box-shadow: 4px 8px 19px -3px rgba(0, 0, 0, 0.27);
+  transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.oauth-button:hover {
+  color: #ffffff;
+  box-shadow: 2px 2px 0 0 var(--border-primary);
+  transform: translate(2px, 2px);
+}
+
+.oauth-button:hover::before {
+  width: 100%;
+}
+
+.oauth-button svg {
+  transition: fill 250ms ease, stroke 250ms ease;
+  z-index: 2;
+}
+
+.oauth-button span {
+  z-index: 2;
+}
+
+.oauth-button:hover svg path {
+  fill: #ffffff !important;
+}
+
+.oauth-button:hover svg {
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Neo Input */
+.neo-input {
+  width: 100%;
+  border-radius: 0;
+  border: 2px solid var(--border-primary);
+  background-color: var(--bg-card);
+  box-shadow: 4px 4px 0 0 var(--border-primary);
+  color: var(--text-primary);
+  padding: 10px 14px;
+  outline: none;
+  font-family: 'JetBrains Mono', monospace;
+  transition: all 200ms ease;
+}
+
+.neo-input:focus {
+  border-color: var(--accent-emerald);
+  box-shadow: 3px 3px 0 0 var(--accent-emerald);
+  transform: translate(1px, 1px);
+}
+
+/* Neo Submit Button */
+.neo-submit-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 0;
+  border: 2px solid var(--border-primary);
+  background-color: var(--accent-emerald);
+  box-shadow: 4px 4px 0 0 var(--border-primary);
+  color: #ffffff;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 250ms ease;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.neo-submit-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0;
+  background-color: var(--border-primary);
+  z-index: -1;
+  transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.neo-submit-button:hover {
+  color: var(--bg-card);
+  box-shadow: 2px 2px 0 0 var(--border-primary);
+  transform: translate(2px, 2px);
+}
+
+.neo-submit-button:hover::before {
+  width: 100%;
+}
+
+.neo-submit-button svg {
+  transition: color 250ms ease, stroke 250ms ease;
+  z-index: 2;
+}
+
+.neo-submit-button:hover svg {
+  color: var(--bg-card) !important;
+  stroke: var(--bg-card) !important;
+}
+
+.neo-submit-button span {
+  z-index: 2;
+}
+
+/* Neo Modal Dialog Box */
+.neo-modal {
+  background-color: var(--bg-primary);
+  max-width: 28rem;
+  width: 100%;
+  border: 2px solid var(--border-primary);
+  position: relative;
+  box-shadow: 8px 8px 0 0 var(--border-primary);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}

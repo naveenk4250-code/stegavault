@@ -1,6 +1,13 @@
-import { AppService } from './app.service';
 export declare class AppController {
-    private readonly appService;
-    constructor(appService: AppService);
-    getHello(): string;
+    getApiStatus(): {
+        name: string;
+        version: string;
+        status: string;
+        timestamp: string;
+        endpoints: {
+            oauthGoogle: string;
+            oauthDiscord: string;
+            oauthLinkedIn: string;
+        };
+    };
 }

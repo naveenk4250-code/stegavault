@@ -13,6 +13,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { AuthModal } from './AuthModal';
+import { ThemeToggle } from './ThemeToggle';
 import type { OAuthUser } from '../lib/oauth';
 
 interface LandingPageProps {
@@ -174,7 +175,8 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
           </nav>
 
           {/* CTA Buttons — Login + Sign Up */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
             <button
               id="nav-login"
               onClick={openLogin}

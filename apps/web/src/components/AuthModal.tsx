@@ -1,6 +1,7 @@
     import { useState } from 'react';
 import { Lock, Eye, EyeOff, AlertCircle, X } from 'lucide-react';
 import { initiateOAuth } from '../lib/oauth';
+import { AnimatedOAuthButton } from './AnimatedOAuthButton';
 
 interface AuthModalProps {
   initialMode?: 'login' | 'signup';
@@ -83,7 +84,7 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin }: Auth
       className="fixed inset-0 bg-stone-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-[#F0EDE4] max-w-md w-full border-2 border-stone-950 relative shadow-2xl">
+      <div className="neo-modal">
         
         {/* Close Button */}
         <button
@@ -144,34 +145,34 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin }: Auth
           </p>
 
           {/* OAuth Buttons */}
-          <div className="space-y-2.5">
-            <button
-              id="oauth-google"
-              onClick={() => handleOAuth('google')}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-white border border-[#D6D2C4] hover:border-stone-400 hover:bg-stone-50 text-stone-800 font-mono text-xs uppercase tracking-wider font-semibold transition-all"
-            >
-              <GoogleIcon />
-              <span>{mode === 'login' ? 'Continue' : 'Sign up'} with Google</span>
-            </button>
+            <div className="space-y-2.5">
+              <AnimatedOAuthButton
+                provider="google"
+                onClick={() => handleOAuth('google')}
+                className="w-full text-xs font-mono font-bold uppercase tracking-wider"
+              >
+                <GoogleIcon />
+                <span>{mode === 'login' ? 'Continue' : 'Sign up'} with Google</span>
+              </AnimatedOAuthButton>
 
-            <button
-              id="oauth-discord"
-              onClick={() => handleOAuth('discord')}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-white border border-[#D6D2C4] hover:border-[#5865F2]/50 hover:bg-[#5865F2]/5 text-stone-800 font-mono text-xs uppercase tracking-wider font-semibold transition-all"
-            >
-              <DiscordIcon />
-              <span>{mode === 'login' ? 'Continue' : 'Sign up'} with Discord</span>
-            </button>
+              <AnimatedOAuthButton
+                provider="discord"
+                onClick={() => handleOAuth('discord')}
+                className="w-full text-xs font-mono font-bold uppercase tracking-wider"
+              >
+                <DiscordIcon />
+                <span>{mode === 'login' ? 'Continue' : 'Sign up'} with Discord</span>
+              </AnimatedOAuthButton>
 
-            <button
-              id="oauth-linkedin"
-              onClick={() => handleOAuth('linkedin')}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-white border border-[#D6D2C4] hover:border-[#0A66C2]/50 hover:bg-[#0A66C2]/5 text-stone-800 font-mono text-xs uppercase tracking-wider font-semibold transition-all"
-            >
-              <LinkedInIcon />
-              <span>{mode === 'login' ? 'Continue' : 'Sign up'} with LinkedIn</span>
-            </button>
-          </div>
+              <AnimatedOAuthButton
+                provider="linkedin"
+                onClick={() => handleOAuth('linkedin')}
+                className="w-full text-xs font-mono font-bold uppercase tracking-wider"
+              >
+                <LinkedInIcon />
+                <span>{mode === 'login' ? 'Continue' : 'Sign up'} with LinkedIn</span>
+              </AnimatedOAuthButton>
+            </div>
 
           {/* Divider */}
           <div className="flex items-center gap-3">
@@ -201,7 +202,7 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin }: Auth
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-white border border-[#D6D2C4] px-3 py-2.5 text-xs text-stone-950 font-mono focus:outline-none focus:border-[#059669] transition-colors"
+                className="neo-input text-xs"
               />
             </div>
 
@@ -217,7 +218,7 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin }: Auth
                   placeholder={mode === 'signup' ? 'Create a strong password' : 'Enter your password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white border border-[#D6D2C4] px-3 py-2.5 text-xs text-stone-950 font-mono focus:outline-none focus:border-[#059669] transition-colors"
+                  className="neo-input text-xs"
                 />
                 <button
                   type="button"
@@ -247,7 +248,7 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin }: Auth
             <button
               id="auth-submit"
               type="submit"
-              className="w-full py-3 bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest flex items-center justify-center gap-2 transition-colors mt-1"
+              className="neo-submit-button text-xs tracking-widest mt-1"
             >
               <Lock className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>{mode === 'login' ? 'Log In to Vault' : 'Create Account'}</span>
