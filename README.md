@@ -2,7 +2,7 @@
 
 > **Zero-knowledge cryptographic steganography platform** — hide encrypted secrets inside ordinary images.
 
-🌐 **Live Demo:**(https://stegavault-web.vercel.app?_vercel_share=OrfbTR3SdKqhlP0OqIUhbRfNrqEteWov)
+🌐 **Live Demo:** https://stegavault-web.vercel.app?_vercel_share=OrfbTR3SdKqhlP0OqIUhbRfNrqEteWov
 
 
 💻 **Source Code:** [https://github.com/naveenk4250-code/stegavault](https://github.com/naveenk4250-code/stegavault)
