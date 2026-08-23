@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Shield,
   Lock,
@@ -15,6 +15,7 @@ import {
 import { AuthModal } from './AuthModal';
 import { ThemeToggle } from './ThemeToggle';
 import type { OAuthUser } from '../lib/oauth';
+import { useTypewriter } from '../lib/animations';
 
 interface LandingPageProps {
   onLoginSuccess: (user: OAuthUser) => void;
@@ -141,15 +142,59 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
     openLogin();
   };
 
+  // ─── Typewriter for hero subheadline ─────────────────────────────────────
+  const typewriterText = useTypewriter(
+    ['Zero-Knowledge Encryption', 'LSB Steganography', 'AES-256-GCM Ciphers', 'Client-Side Security'],
+    75,
+    2200
+  );
+
+  // ─── Scroll-reveal via IntersectionObserver ───────────────────────────────
+  useEffect(() => {
+    const els = document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            // stagger siblings
+            const siblings = entry.target.parentElement?.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale');
+            if (siblings) {
+              let delay = 0;
+              siblings.forEach((sib) => {
+                if (sib === entry.target || !sib.classList.contains('visible')) {
+                  setTimeout(() => sib.classList.add('visible'), delay);
+                  delay += 80;
+                }
+              });
+            } else {
+              entry.target.classList.add('visible');
+            }
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -50px 0px' }
+    );
+    els.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+
   return (
     <div className="min-h-screen bg-[#F0EDE4] text-stone-900 font-sans selection:bg-[#059669]/20 selection:text-[#059669]">
       
-      {/* TOP TAGLINE BAR WITH DASHES */}
-      <div className="border-b border-[#D6D2C4] py-2 px-4 sm:px-8 text-center bg-[#EBE7DC]">
-        <div className="max-w-[1600px] mx-auto flex items-center justify-center gap-3 text-[11px] font-mono tracking-[0.2em] text-stone-500 uppercase">
-          <span className="h-px w-12 bg-[#059669]"></span>
-          <span>ZERO-KNOWLEDGE CRYPTOGRAPHIC STEGANOGRAPHY PLATFORM</span>
-          <span className="h-px w-12 bg-[#059669]"></span>
+      {/* TOP TAGLINE MARQUEE BAR */}
+      <div className="border-b border-[#D6D2C4] py-2 px-4 sm:px-8 text-center bg-[#EBE7DC] overflow-hidden">
+        <div className="marquee-track text-[11px] font-mono tracking-[0.2em] text-stone-500 uppercase gap-12">
+          {[...Array(6)].map((_, i) => (
+            <span key={i} className="flex items-center gap-6 shrink-0 pr-12">
+              <span className="h-px w-8 bg-[#059669]" />
+              <span>ZERO-KNOWLEDGE CRYPTOGRAPHIC STEGANOGRAPHY PLATFORM</span>
+              <span className="text-[#059669]">✦</span>
+              <span>AES-256-GCM · LSB SPATIAL EMBEDDING · CLIENT-SIDE ONLY</span>
+              <span className="h-px w-8 bg-[#059669]" />
+            </span>
+          ))}
         </div>
       </div>
 
@@ -168,26 +213,25 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
 
           {/* Navigation Links */}
           <nav className="hidden md:flex items-center gap-10 text-xs font-mono tracking-wider text-stone-600 uppercase">
-            <a href="#overview" className="hover:text-stone-950 transition-colors">Overview</a>
-            <a href="#interactive-demo" className="hover:text-stone-950 transition-colors">Pixel Inspector</a>
-            <a href="#architecture" className="hover:text-stone-950 transition-colors">Architecture</a>
-            <a href="#security-spec" className="hover:text-stone-950 transition-colors">Security Spec</a>
+            <a href="#overview" className="underline-slide hover:text-stone-950 transition-colors">Overview</a>
+            <a href="#interactive-demo" className="underline-slide hover:text-stone-950 transition-colors">Pixel Inspector</a>
+            <a href="#architecture" className="underline-slide hover:text-stone-950 transition-colors">Architecture</a>
+            <a href="#security-spec" className="underline-slide hover:text-stone-950 transition-colors">Security Spec</a>
           </nav>
 
-          {/* CTA Buttons — Login + Sign Up */}
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <button
               id="nav-login"
               onClick={openLogin}
-              className="text-xs font-mono tracking-wider text-stone-700 hover:text-stone-950 uppercase px-2 py-1 transition-colors"
+              className="text-xs font-mono tracking-wider text-stone-700 hover:text-stone-950 uppercase px-2 py-1 transition-colors underline-slide"
             >
               Log In
             </button>
             <button
               id="nav-signup"
               onClick={openSignup}
-              className="bg-[#059669] hover:bg-[#047857] text-white font-brand text-xs uppercase font-bold tracking-widest px-5 py-2.5 rounded-none transition-colors flex items-center gap-2"
+              className="mag-btn bg-[#059669] hover:bg-[#047857] text-white font-brand text-xs uppercase font-bold tracking-widest px-5 py-2.5 rounded-none transition-all flex items-center gap-2 active:scale-95"
             >
               <Lock className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Sign Up Free</span>
@@ -204,19 +248,22 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
           <div className="lg:col-span-7 space-y-7">
             
             {/* Metadata Tag */}
-            <div className="inline-block">
+            <div className="inline-block animate-fade-down">
               <span className="font-mono text-xs uppercase tracking-[0.25em] text-stone-500 font-semibold bg-[#E7E3D7] px-3 py-1 border border-[#D6D2C4]">
                 REPURPOSE ANY SECRET PAYLOAD OR FILE
               </span>
             </div>
 
-            {/* Headline with Italic Serif Accent */}
-            <h1 className="text-4xl sm:text-6xl lg:text-6xl font-black text-stone-950 tracking-tight leading-[1.08]">
+            {/* Headline */}
+            <h1 className="animate-fade-up delay-100 text-4xl sm:text-6xl lg:text-6xl font-black text-stone-950 tracking-tight leading-[1.08]">
               Hide your confidential data in <span className="font-serif-italic font-normal text-stone-900 underline decoration-[#059669] decoration-2 underline-offset-8">plain sight</span> inside pixels.
             </h1>
 
-            {/* Accent Line Divider */}
-            <div className="h-px w-24 bg-[#059669]" />
+            {/* Accent Line + Typewriter */}
+            <div className="animate-fade-up delay-200 space-y-2">
+              <div className="h-px w-24 bg-[#059669]" />
+              <p className="font-mono text-xs text-[#059669] uppercase tracking-widest typing-cursor min-h-[1.2em]">{typewriterText}</p>
+            </div>
 
             {/* Descriptive Body Paragraph */}
             <p className="text-stone-700 text-base sm:text-lg leading-relaxed max-w-xl">
@@ -237,11 +284,11 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
             </div>
 
             {/* Two CTA Buttons */}
-            <div className="pt-2 flex flex-col sm:flex-row gap-3">
+            <div className="animate-fade-up delay-400 pt-2 flex flex-col sm:flex-row gap-3">
               <button
                 id="hero-signup"
                 onClick={openSignup}
-                className="bg-[#059669] hover:bg-[#047857] text-white font-brand text-xs uppercase font-bold tracking-widest px-7 py-3.5 flex items-center justify-center gap-2 transition-colors"
+                className="mag-btn bg-[#059669] hover:bg-[#047857] text-white font-brand text-xs uppercase font-bold tracking-widest px-7 py-3.5 flex items-center justify-center gap-2 transition-all shadow-[4px_4px_0_0_#047857] hover:shadow-[2px_2px_0_0_#047857] hover:translate-x-[2px] hover:translate-y-[2px]"
               >
                 <Lock className="w-4 h-4 stroke-[2.5]" />
                 <span>Get Started Free</span>
@@ -249,7 +296,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
               <button
                 id="hero-login"
                 onClick={openLogin}
-                className="border-2 border-stone-950 text-stone-950 hover:bg-stone-950 hover:text-white font-brand text-xs uppercase font-bold tracking-widest px-7 py-3.5 flex items-center justify-center gap-2 transition-all"
+                className="mag-btn border-2 border-stone-950 text-stone-950 hover:bg-stone-950 hover:text-white font-brand text-xs uppercase font-bold tracking-widest px-7 py-3.5 flex items-center justify-center gap-2 transition-all"
               >
                 <span>Log In</span>
               </button>
@@ -267,8 +314,8 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
           </div>
 
           {/* HERO RIGHT COLUMN: DARK LIVE DEMO MOCKUP PANEL */}
-          <div className="lg:col-span-5">
-            <div className="bg-stone-950 text-stone-100 rounded-none border border-stone-800 p-6 sm:p-7 relative shadow-2xl space-y-6">
+          <div className="lg:col-span-5 animate-slide-right delay-300">
+            <div className="scan-lines bg-stone-950 text-stone-100 rounded-none border border-stone-800 p-6 sm:p-7 relative shadow-2xl space-y-6 animate-float-slow">
               
               {/* Terminal UI Top Status Bar */}
               <div className="flex items-center justify-between font-mono text-xs border-b border-stone-800 pb-4">
@@ -407,19 +454,19 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
       <section className="border-t border-b border-[#D6D2C4] bg-[#EBE7DC] py-10">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 border-l border-r border-[#D6D2C4]">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            <div className="border-r border-[#D6D2C4] last:border-none pr-4">
+            <div className="reveal border-r border-[#D6D2C4] last:border-none pr-4">
               <span className="font-mono text-3xl font-black text-stone-950 block">256-BIT</span>
               <span className="text-xs text-stone-600 font-mono uppercase mt-1 block">AES-GCM Authenticated Cipher</span>
             </div>
-            <div className="border-r border-[#D6D2C4] last:border-none pr-4">
+            <div className="reveal delay-100 border-r border-[#D6D2C4] last:border-none pr-4">
               <span className="font-mono text-3xl font-black text-[#059669] block">1-BIT LSB</span>
               <span className="text-xs text-stone-600 font-mono uppercase mt-1 block">Spatial Pixel Hiding</span>
             </div>
-            <div className="border-r border-[#D6D2C4] last:border-none pr-4">
+            <div className="reveal delay-200 border-r border-[#D6D2C4] last:border-none pr-4">
               <span className="font-mono text-3xl font-black text-stone-950 block">0 BYTES</span>
               <span className="text-xs text-stone-600 font-mono uppercase mt-1 block">Plaintext Stored On Cloud</span>
             </div>
-            <div>
+            <div className="reveal delay-300">
               <span className="font-mono text-3xl font-black text-[#059669] block">100%</span>
               <span className="text-xs text-stone-600 font-mono uppercase mt-1 block">GCM Tag Integrity Check</span>
             </div>
@@ -431,7 +478,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
       <section id="interactive-demo" className="max-w-[1600px] mx-auto border-l border-r border-[#D6D2C4] px-4 sm:px-8 lg:px-12 py-20">
         <div className="border border-[#D6D2C4] bg-white p-8 sm:p-10 space-y-8">
           
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#D6D2C4]">
+          <div className="reveal flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#D6D2C4]">
             <div>
               <div className="inline-flex items-center gap-2 text-xs font-mono text-[#059669] font-bold uppercase tracking-widest mb-1">
                 <Layers className="w-4 h-4" />

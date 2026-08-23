@@ -281,11 +281,11 @@ function AppInner() {
 
   // --- 2. AUTHENTICATED: ENTERPRISE VAULT WORKSPACE ---
   return (
-    <div className="min-h-screen bg-[#F0EDE4] text-stone-900 font-sans flex flex-col">
+    <div className="min-h-screen bg-[#F0EDE4] text-stone-900 font-sans flex flex-col page-enter">
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-[#059669] text-white font-mono text-xs uppercase font-bold tracking-wider px-4 py-3 rounded-none shadow-2xl flex items-center gap-2.5 animate-bounce border border-stone-900">
-          <Sparkles className="w-4 h-4 shrink-0 text-amber-300" />
+        <div className="fixed bottom-6 right-6 z-50 bg-[#059669] text-white font-mono text-xs uppercase font-bold tracking-wider px-4 py-3 rounded-none shadow-2xl flex items-center gap-2.5 toast-enter border border-stone-900">
+          <Sparkles className="w-4 h-4 shrink-0 text-amber-300 animate-spin-slow" />
           <span>{toast}</span>
         </div>
       )}
@@ -315,9 +315,9 @@ function AppInner() {
           <nav className="hidden md:flex items-center gap-1 bg-[#EBE7DC] p-1 rounded-none border border-[#D6D2C4]">
             <button
               onClick={() => setActiveTab('vault')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
                 activeTab === 'vault'
-                  ? 'bg-[#059669] text-white font-bold'
+                  ? 'bg-[#059669] text-white font-bold shadow-sm active'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
               }`}
             >
@@ -326,9 +326,9 @@ function AppInner() {
             </button>
             <button
               onClick={() => setActiveTab('encrypt')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
                 activeTab === 'encrypt'
-                  ? 'bg-[#059669] text-white font-bold'
+                  ? 'bg-[#059669] text-white font-bold shadow-sm active'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
               }`}
             >
@@ -337,9 +337,9 @@ function AppInner() {
             </button>
             <button
               onClick={() => setActiveTab('decrypt')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
                 activeTab === 'decrypt'
-                  ? 'bg-[#059669] text-white font-bold'
+                  ? 'bg-[#059669] text-white font-bold shadow-sm active'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
               }`}
             >
@@ -348,9 +348,9 @@ function AppInner() {
             </button>
             <button
               onClick={() => setActiveTab('shares')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
                 activeTab === 'shares'
-                  ? 'bg-[#059669] text-white font-bold'
+                  ? 'bg-[#059669] text-white font-bold shadow-sm active'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
               }`}
             >
@@ -359,9 +359,9 @@ function AppInner() {
             </button>
             <button
               onClick={() => setActiveTab('audit')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
                 activeTab === 'audit'
-                  ? 'bg-[#059669] text-white font-bold'
+                  ? 'bg-[#059669] text-white font-bold shadow-sm active'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
               }`}
             >
@@ -375,7 +375,7 @@ function AppInner() {
             <ThemeToggle />
             <button
               onClick={() => setActiveTab('encrypt')}
-              className="flex items-center gap-2 bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest px-4 py-2 rounded-none transition-colors"
+              className="mag-btn flex items-center gap-2 bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest px-4 py-2 rounded-none transition-all shadow-[2px_2px_0_0_#1C1917]"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span className="hidden sm:inline">Encrypt Payload</span>
@@ -416,8 +416,8 @@ function AppInner() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
         {/* METRICS & STATUS RIBBON */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white border border-[#D6D2C4] p-4 rounded-none flex items-center gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-up">
+          <div className="bg-white border border-[#D6D2C4] p-4 rounded-none flex items-center gap-4 card-lift">
             <div className="w-10 h-10 rounded-none bg-[#059669]/10 border border-[#059669]/20 flex items-center justify-center shrink-0">
               <HardDrive className="w-5 h-5 text-[#059669]" />
             </div>
@@ -428,7 +428,7 @@ function AppInner() {
             </div>
           </div>
 
-          <div className="bg-white border border-[#D6D2C4] p-4 rounded-none flex items-center gap-4">
+          <div className="bg-white border border-[#D6D2C4] p-4 rounded-none flex items-center gap-4 card-lift delay-100">
             <div className="w-10 h-10 rounded-none bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
               <FolderLock className="w-5 h-5 text-cyan-600" />
             </div>
@@ -439,7 +439,7 @@ function AppInner() {
             </div>
           </div>
 
-          <div className="bg-white border border-[#D6D2C4] p-4 rounded-none flex items-center gap-4">
+          <div className="bg-white border border-[#D6D2C4] p-4 rounded-none flex items-center gap-4 card-lift delay-200">
             <div className="w-10 h-10 rounded-none bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
               <Layers className="w-5 h-5 text-purple-600" />
             </div>
@@ -450,7 +450,7 @@ function AppInner() {
             </div>
           </div>
 
-          <div className="bg-white border border-[#D6D2C4] p-4 rounded-none flex items-center gap-4">
+          <div className="bg-white border border-[#D6D2C4] p-4 rounded-none flex items-center gap-4 card-lift delay-300">
             <div className="w-10 h-10 rounded-none bg-[#059669]/10 border border-[#059669]/20 flex items-center justify-center shrink-0">
               <Shield className="w-5 h-5 text-[#059669]" />
             </div>
@@ -464,7 +464,7 @@ function AppInner() {
 
         {/* TAB 1: VAULT FILES DASHBOARD */}
         {activeTab === 'vault' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fade-up">
             {/* Control Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3 flex-1">
