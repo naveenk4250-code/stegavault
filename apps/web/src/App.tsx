@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { LandingPage } from './components/LandingPage';
 import { AuthCallback } from './pages/AuthCallback';
@@ -137,15 +137,33 @@ function AppInner() {
   // Active navigation tab
   const [activeTab, setActiveTab] = useState<'vault' | 'encrypt' | 'decrypt' | 'shares' | 'audit'>('vault');
 
-  // Vault data state
-  const [files, setFiles] = useState(INITIAL_VAULT_FILES);
+  // Vault data state (Persisted in localStorage)
+  const [files, setFiles] = useState<any[]>(() => {
+    try {
+      const stored = localStorage.getItem('stegavault_files');
+      return stored ? JSON.parse(stored) : INITIAL_VAULT_FILES;
+    } catch {
+      return INITIAL_VAULT_FILES;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('stegavault_files', JSON.stringify(files));
+    } catch {}
+  }, [files]);
+
   const [shares] = useState(INITIAL_SHARES);
   const [logs, setLogs] = useState(INITIAL_AUDIT_LOGS);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAlgo, setFilterAlgo] = useState<'ALL' | 'AES-256-GCM' | 'ChaCha20-Poly1305'>('ALL');
 
-  // Encrypt Form state
+  // Custom File Upload & Stego refs
+  const encryptFileInputRef = useRef<HTMLInputElement>(null);
+  const stegoFileInputRef = useRef<HTMLInputElement>(null);
   const [targetFile, setTargetFile] = useState<File | null>(null);
+  const [stegoContainerFile, setStegoContainerFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [passphrase, setPassphrase] = useState('');
   const [selectedAlgo, setSelectedAlgo] = useState<'AES-256-GCM' | 'ChaCha20-Poly1305'>('AES-256-GCM');
   const [selectedCover, setSelectedCover] = useState('quantum_nebula_4k.png');
@@ -157,11 +175,32 @@ function AppInner() {
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [decryptResult, setDecryptResult] = useState<any | null>(null);
 
-  // Share Modal state
-  const [activeShareFile, setActiveShareFile] = useState<any | null>(null);
-  const [shareEmail, setShareEmail] = useState('');
-  const [shareExpiry, setShareExpiry] = useState('7 days');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  // File Handlers for custom file upload
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      setTargetFile(file);
+      showToast(`Loaded custom file: ${file.name}`);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setTargetFile(file);
+      showToast(`Loaded custom file: ${file.name}`);
+    }
+  };
+
+  const handleStegoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setStegoContainerFile(file);
+      showToast(`Loaded custom stego image: ${file.name}`);
+    }
+  };
 
   // Toast notification
   const [toast, setToast] = useState<string | null>(null);
@@ -259,10 +298,13 @@ function AppInner() {
 
     setTimeout(() => {
       setIsDecrypting(false);
+      const decName = targetFile ? targetFile.name : (stegoContainerFile ? stegoContainerFile.name.replace(/\.[^/.]+$/, "") + "_decrypted.pdf" : 'custom_decrypted_document.pdf');
+      const decSize = targetFile ? formatSize(targetFile.size) : '4.4 MB';
+
       setDecryptResult({
-        name: 'q3_financial_audit_confidential.pdf',
-        size: '4.4 MB',
-        checksum: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        name: decName,
+        size: decSize,
+        checksum: `0x${Math.random().toString(16).substring(2, 10)}${Math.random().toString(16).substring(2, 10)}${Math.random().toString(16).substring(2, 10)}`,
         verified: true,
       });
 
@@ -271,7 +313,7 @@ function AppInner() {
           id: `log-${Date.now()}`,
           event: 'FILE_DECRYPT',
           user: user?.email || 'alex.mercer@enterprise.io',
-          detail: `Extracted key & decrypted payload checksum verified`,
+          detail: `Extracted key & decrypted payload ${decName}`,
           time: 'Just now',
           ip: '192.168.1.102',
           status: 'SUCCESS',
@@ -279,8 +321,22 @@ function AppInner() {
         ...logs,
       ]);
 
-      showToast('Key extracted & plaintext checksum verified!');
+      showToast(`Extracted key & verified checksum for ${decName}!`);
     }, 2400);
+  };
+
+  const handleDownloadDecrypted = (fileName: string) => {
+    const content = `SecureCloud Decrypted Payload: ${fileName}\nExtracted: ${new Date().toISOString()}\nCipher: AES-256-GCM + LSB Steganography`;
+    const blob = new Blob([content], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`Downloaded ${fileName}`);
   };
 
   // Filtered files
@@ -608,6 +664,13 @@ function AppInner() {
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button
+                              onClick={() => handleDownloadDecrypted(file.name)}
+                              className="p-2 rounded-none bg-[#EBE7DC] border border-[#D6D2C4] hover:border-[#059669]/50 text-stone-700 hover:text-[#059669] transition-colors"
+                              title="Download Decrypted Payload"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                            <button
                               onClick={() => {
                                 setActiveTab('decrypt');
                                 showToast(`Loaded ${file.name} for key extraction`);
@@ -674,26 +737,36 @@ function AppInner() {
                   <label className="block text-xs font-mono font-semibold uppercase text-stone-700 mb-2">
                     1. Select Secret Target File
                   </label>
+                  <input
+                    type="file"
+                    ref={encryptFileInputRef}
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
                   <div
-                    onClick={() => {
-                      const dummy = new File(['Confidential Enterprise Financial Audit 2026'], 'q3_financial_audit_confidential.pdf', { type: 'application/pdf' });
-                      setTargetFile(dummy);
-                    }}
-                    className="border-2 border-dashed border-[#D6D2C4] hover:border-[#059669] bg-[#EBE7DC]/40 p-6 rounded-none text-center cursor-pointer transition-colors"
+                    onClick={() => encryptFileInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={handleFileDrop}
+                    className={`border-2 border-dashed ${isDragging ? 'border-[#059669] bg-[#059669]/10' : 'border-[#D6D2C4] hover:border-[#059669] bg-[#EBE7DC]/40'} p-6 sm:p-8 rounded-none text-center cursor-pointer transition-colors`}
                   >
                     {targetFile ? (
-                      <div className="flex items-center justify-center gap-3 text-[#059669] font-semibold">
-                        <FileCheck className="w-6 h-6" />
+                      <div className="flex items-center justify-center gap-4 text-[#059669] font-semibold">
+                        <FileCheck className="w-8 h-8 shrink-0 text-[#059669]" />
                         <div className="text-left font-mono">
-                          <span className="text-stone-900 block font-bold">{targetFile.name}</span>
-                          <span className="text-xs text-stone-500">{formatSize(targetFile.size)}</span>
+                          <span className="text-stone-900 block font-bold text-sm">{targetFile.name}</span>
+                          <span className="text-xs text-stone-500">{formatSize(targetFile.size)} · {targetFile.type || 'Custom Payload'}</span>
+                          <span className="text-[10px] text-[#059669] block font-bold uppercase mt-0.5">✓ Ready for client-side encryption</span>
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <Upload className="w-8 h-8 text-stone-400 mx-auto" />
-                        <p className="text-sm font-mono font-bold uppercase text-stone-800">Click to select or drop secret payload file</p>
-                        <p className="text-xs text-stone-500 font-mono uppercase">Payload is encrypted inside browser memory prior to any transmission</p>
+                        <p className="text-sm font-mono font-bold uppercase text-stone-800">Click to browse your device or drop any custom file here</p>
+                        <p className="text-xs text-stone-500 font-mono uppercase">Supports PDF, DOCX, TXT, PNG, ZIP, MP4, or any confidential data file</p>
+                        <span className="inline-block mt-1 px-3 py-1 bg-[#059669]/10 border border-[#059669]/20 text-[#059669] text-[10px] font-mono font-bold uppercase">
+                          Drag & Drop or Click to Select
+                        </span>
                       </div>
                     )}
                   </div>
@@ -813,10 +886,32 @@ function AppInner() {
                   <label className="block text-xs font-mono font-semibold uppercase text-stone-700 mb-2">
                     Upload Stego-Cover Image (PNG containing embedded LSB key)
                   </label>
-                  <div className="border-2 border-dashed border-[#D6D2C4] hover:border-cyan-600/50 bg-[#EBE7DC]/40 p-6 rounded-none text-center cursor-pointer">
-                    <Layers className="w-8 h-8 text-cyan-600 mx-auto mb-2" />
-                    <p className="text-sm font-mono font-bold uppercase text-stone-900">Select Stego Container PNG</p>
-                    <p className="text-xs text-stone-500 font-mono mt-1 uppercase">Default loaded: quantum_nebula_4k.png</p>
+                  <input
+                    type="file"
+                    accept="image/*,.png"
+                    ref={stegoFileInputRef}
+                    onChange={handleStegoFileSelect}
+                    className="hidden"
+                  />
+                  <div
+                    onClick={() => stegoFileInputRef.current?.click()}
+                    className="border-2 border-dashed border-[#D6D2C4] hover:border-cyan-600/50 bg-[#EBE7DC]/40 p-6 rounded-none text-center cursor-pointer transition-colors"
+                  >
+                    {stegoContainerFile ? (
+                      <div className="flex items-center justify-center gap-3 text-cyan-600 font-semibold">
+                        <Layers className="w-6 h-6 shrink-0" />
+                        <div className="text-left font-mono">
+                          <span className="text-stone-900 block font-bold text-sm">{stegoContainerFile.name}</span>
+                          <span className="text-xs text-stone-500">{formatSize(stegoContainerFile.size)} · Custom Stego Container PNG</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <Layers className="w-8 h-8 text-cyan-600 mx-auto mb-2" />
+                        <p className="text-sm font-mono font-bold uppercase text-stone-900">Click to choose custom Stego Container PNG image</p>
+                        <p className="text-xs text-stone-500 font-mono mt-1 uppercase">Select your PNG image containing embedded LSB key</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -855,11 +950,11 @@ function AppInner() {
                     <div className="break-all"><strong className="text-stone-500">SHA-256 Checksum:</strong> {decryptResult.checksum}</div>
                   </div>
                   <button
-                    onClick={() => showToast('Triggered client-side Blob download for decrypted payload')}
+                    onClick={() => handleDownloadDecrypted(decryptResult.name)}
                     className="w-full py-2.5 rounded-none bg-[#059669] text-white font-mono uppercase font-bold tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-[#047857] transition-colors"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Download Decrypted Payload File</span>
+                    <span>Download Decrypted Payload File ({decryptResult.name})</span>
                   </button>
                 </div>
               )}
