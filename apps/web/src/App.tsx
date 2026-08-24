@@ -245,7 +245,7 @@ function AppInner() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  // Handle Encrypt Submission
+  // Handle Encrypt Submission (Encodes real binary file into Data URL)
   const handleEncryptSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetFile) return showToast('Please select a file to encrypt');
@@ -258,40 +258,47 @@ function AppInner() {
     setTimeout(() => setEncryptStep(3), 2200); // LSB Spatial Embedding into Cover PNG
     setTimeout(() => setEncryptStep(4), 3400); // Presigned S3 Encrypted Storage Upload
 
-    setTimeout(() => {
-      setIsEncrypting(false);
-      const newFile = {
-        id: `sec-${Date.now()}`,
-        name: targetFile.name,
-        type: targetFile.type || 'Binary Stream',
-        sizeBytes: targetFile.size,
-        hash: `0x${Math.random().toString(16).substring(2, 10)}...${Math.random().toString(16).substring(2, 6)}`,
-        algo: selectedAlgo,
-        stegoCover: selectedCover,
-        stegoCapacity: '4.8 MB Capacity',
-        uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        status: 'Encrypted & Hidden',
-      };
+    const currentFile = targetFile;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setTimeout(() => {
+        setIsEncrypting(false);
+        const newFile = {
+          id: `sec-${Date.now()}`,
+          name: currentFile.name,
+          type: currentFile.type || 'Binary File',
+          sizeBytes: currentFile.size,
+          hash: `0x${Math.random().toString(16).substring(2, 10)}...${Math.random().toString(16).substring(2, 6)}`,
+          algo: selectedAlgo,
+          stegoCover: selectedCover,
+          stegoCapacity: `${formatSize(Math.max(currentFile.size * 2, 4000000))} Capacity`,
+          uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+          status: 'Encrypted & Hidden',
+          dataUrl: dataUrl, // Preserves exact original binary photo/file!
+        };
 
-      setFiles([newFile, ...files]);
-      setLogs([
-        {
-          id: `log-${Date.now()}`,
-          event: 'STEGO_EMBED',
-          user: user?.email || 'alex.mercer@enterprise.io',
-          detail: `Encrypted ${targetFile.name} & embedded key into ${selectedCover}`,
-          time: 'Just now',
-          ip: '192.168.1.102',
-          status: 'SUCCESS',
-        },
-        ...logs,
-      ]);
+        setFiles((prevFiles) => [newFile, ...prevFiles]);
+        setLogs((prevLogs) => [
+          {
+            id: `log-${Date.now()}`,
+            event: 'STEGO_EMBED',
+            user: user?.email || 'alex.mercer@enterprise.io',
+            detail: `Encrypted ${currentFile.name} & embedded key into ${selectedCover}`,
+            time: 'Just now',
+            ip: '192.168.1.102',
+            status: 'SUCCESS',
+          },
+          ...prevLogs,
+        ]);
 
-      showToast(`Payload ${targetFile.name} encrypted & hidden in ${selectedCover}`);
-      setTargetFile(null);
-      setPassphrase('');
-      setActiveTab('vault');
-    }, 4500);
+        showToast(`Payload ${currentFile.name} encrypted & hidden in ${selectedCover}`);
+        setTargetFile(null);
+        setPassphrase('');
+        setActiveTab('vault');
+      }, 4500);
+    };
+    reader.readAsDataURL(currentFile);
   };
 
   // Handle Decrypt Submission
@@ -304,17 +311,20 @@ function AppInner() {
 
     setTimeout(() => {
       setIsDecrypting(false);
-      const decName = targetFile ? targetFile.name : (stegoContainerFile ? stegoContainerFile.name.replace(/\.[^/.]+$/, "") + "_decrypted.pdf" : 'custom_decrypted_document.pdf');
-      const decSize = targetFile ? formatSize(targetFile.size) : '4.4 MB';
+      const matched = targetFile || (stegoContainerFile ? { name: stegoContainerFile.name.replace(/\.[^/.]+$/, "") + "_decrypted.pdf", size: stegoContainerFile.size } : null);
+      const decName = matched ? matched.name : (files[0]?.name || 'decrypted_payload.pdf');
+      const decSize = matched ? formatSize(matched.size) : '4.4 MB';
+      const decDataUrl = files.find(f => f.name === decName)?.dataUrl || (targetFile ? null : null);
 
       setDecryptResult({
         name: decName,
         size: decSize,
         checksum: `0x${Math.random().toString(16).substring(2, 10)}${Math.random().toString(16).substring(2, 10)}${Math.random().toString(16).substring(2, 10)}`,
         verified: true,
+        dataUrl: decDataUrl,
       });
 
-      setLogs([
+      setLogs((prevLogs) => [
         {
           id: `log-${Date.now()}`,
           event: 'FILE_DECRYPT',
@@ -324,15 +334,32 @@ function AppInner() {
           ip: '192.168.1.102',
           status: 'SUCCESS',
         },
-        ...logs,
+        ...prevLogs,
       ]);
 
       showToast(`Extracted key & verified checksum for ${decName}!`);
     }, 2400);
   };
 
-  const handleDownloadDecrypted = (fileName: string) => {
-    const content = `SecureCloud Decrypted Payload: ${fileName}\nExtracted: ${new Date().toISOString()}\nCipher: AES-256-GCM + LSB Steganography`;
+  // Handle Binary Download (Downloads original binary photo/file intact!)
+  const handleDownloadDecrypted = (fileObj: any) => {
+    const targetItem = typeof fileObj === 'object' ? fileObj : files.find(f => f.name === fileObj || f.id === fileObj);
+    const fileName = typeof fileObj === 'string' ? fileObj : (fileObj?.name || 'downloaded_payload');
+    const dataUrl = targetItem?.dataUrl;
+
+    if (dataUrl) {
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast(`Downloaded original file: ${fileName}`);
+      return;
+    }
+
+    // Fallback for mock items without binary dataUrl
+    const content = `SecureCloud Vault Demo Payload: ${fileName}\nExtracted: ${new Date().toISOString()}\nAES-256-GCM + LSB Steganography.`;
     const blob = new Blob([content], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
