@@ -1,14 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-discord';
 
 @Injectable()
 export class DiscordStrategy extends PassportStrategy(Strategy, 'discord') {
-  constructor() {
+  constructor(private readonly config: ConfigService) {
     super({
-      clientID: process.env.DISCORD_CLIENT_ID!,
-      clientSecret: process.env.DISCORD_CLIENT_SECRET!,
-      callbackURL: process.env.DISCORD_CALLBACK_URL!,
+      clientID: config.get<string>('DISCORD_CLIENT_ID') || 'dummy-discord-client-id',
+      clientSecret: config.get<string>('DISCORD_CLIENT_SECRET') || 'dummy-discord-client-secret',
+      callbackURL: config.get<string>('DISCORD_CALLBACK_URL') || 'http://localhost:3000/auth/oauth/discord/callback',
       scope: ['identify', 'email'],
     });
   }
@@ -20,8 +21,8 @@ export class DiscordStrategy extends PassportStrategy(Strategy, 'discord') {
     done: Function,
   ): Promise<any> {
     const user = {
-      email: profile.email,
-      name: profile.username,
+      email: profile.email ?? '',
+      name: profile.username ?? 'Discord User',
       avatar: profile.avatar
         ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
         : null,

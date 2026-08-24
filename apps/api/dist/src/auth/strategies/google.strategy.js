@@ -18,9 +18,9 @@ let GoogleStrategy = class GoogleStrategy extends (0, passport_1.PassportStrateg
     config;
     constructor(config) {
         super({
-            clientID: config.get('GOOGLE_CLIENT_ID'),
-            clientSecret: config.get('GOOGLE_CLIENT_SECRET'),
-            callbackURL: config.get('GOOGLE_CALLBACK_URL'),
+            clientID: config.get('GOOGLE_CLIENT_ID') || 'dummy-google-client-id',
+            clientSecret: config.get('GOOGLE_CLIENT_SECRET') || 'dummy-google-client-secret',
+            callbackURL: config.get('GOOGLE_CALLBACK_URL') || 'http://localhost:3000/auth/oauth/google/callback',
             scope: ['email', 'profile'],
         });
         this.config = config;
@@ -28,8 +28,8 @@ let GoogleStrategy = class GoogleStrategy extends (0, passport_1.PassportStrateg
     async validate(accessToken, refreshToken, profile, done) {
         const { name, emails, photos } = profile;
         const user = {
-            email: emails[0].value,
-            name: `${name.givenName} ${name.familyName}`,
+            email: emails?.[0]?.value ?? '',
+            name: name ? `${name.givenName} ${name.familyName}` : 'Google User',
             avatar: photos?.[0]?.value ?? null,
             provider: 'google',
             accessToken,

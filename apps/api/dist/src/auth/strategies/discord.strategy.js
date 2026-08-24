@@ -11,21 +11,24 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DiscordStrategy = void 0;
 const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
 const passport_1 = require("@nestjs/passport");
 const passport_discord_1 = require("passport-discord");
 let DiscordStrategy = class DiscordStrategy extends (0, passport_1.PassportStrategy)(passport_discord_1.Strategy, 'discord') {
-    constructor() {
+    config;
+    constructor(config) {
         super({
-            clientID: process.env.DISCORD_CLIENT_ID,
-            clientSecret: process.env.DISCORD_CLIENT_SECRET,
-            callbackURL: process.env.DISCORD_CALLBACK_URL,
+            clientID: config.get('DISCORD_CLIENT_ID') || 'dummy-discord-client-id',
+            clientSecret: config.get('DISCORD_CLIENT_SECRET') || 'dummy-discord-client-secret',
+            callbackURL: config.get('DISCORD_CALLBACK_URL') || 'http://localhost:3000/auth/oauth/discord/callback',
             scope: ['identify', 'email'],
         });
+        this.config = config;
     }
     async validate(accessToken, refreshToken, profile, done) {
         const user = {
-            email: profile.email,
-            name: profile.username,
+            email: profile.email ?? '',
+            name: profile.username ?? 'Discord User',
             avatar: profile.avatar
                 ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
                 : null,
@@ -38,6 +41,6 @@ let DiscordStrategy = class DiscordStrategy extends (0, passport_1.PassportStrat
 exports.DiscordStrategy = DiscordStrategy;
 exports.DiscordStrategy = DiscordStrategy = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [])
+    __metadata("design:paramtypes", [config_1.ConfigService])
 ], DiscordStrategy);
 //# sourceMappingURL=discord.strategy.js.map

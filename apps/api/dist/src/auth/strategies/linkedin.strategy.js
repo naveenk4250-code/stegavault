@@ -11,16 +11,19 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LinkedInStrategy = void 0;
 const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
 const passport_1 = require("@nestjs/passport");
 const passport_linkedin_oauth2_1 = require("passport-linkedin-oauth2");
 let LinkedInStrategy = class LinkedInStrategy extends (0, passport_1.PassportStrategy)(passport_linkedin_oauth2_1.Strategy, 'linkedin') {
-    constructor() {
+    config;
+    constructor(config) {
         super({
-            clientID: process.env.LINKEDIN_CLIENT_ID,
-            clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-            callbackURL: process.env.LINKEDIN_CALLBACK_URL,
+            clientID: config.get('LINKEDIN_CLIENT_ID') || 'dummy-linkedin-client-id',
+            clientSecret: config.get('LINKEDIN_CLIENT_SECRET') || 'dummy-linkedin-client-secret',
+            callbackURL: config.get('LINKEDIN_CALLBACK_URL') || 'http://localhost:3000/auth/oauth/linkedin/callback',
             scope: ['openid', 'profile', 'email'],
         });
+        this.config = config;
     }
     async validate(accessToken, refreshToken, profile, done) {
         const user = {
@@ -36,6 +39,6 @@ let LinkedInStrategy = class LinkedInStrategy extends (0, passport_1.PassportStr
 exports.LinkedInStrategy = LinkedInStrategy;
 exports.LinkedInStrategy = LinkedInStrategy = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [])
+    __metadata("design:paramtypes", [config_1.ConfigService])
 ], LinkedInStrategy);
 //# sourceMappingURL=linkedin.strategy.js.map
