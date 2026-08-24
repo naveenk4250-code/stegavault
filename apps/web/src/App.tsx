@@ -459,18 +459,18 @@ function AppInner() {
 
             <div className="flex items-center gap-2.5">
               <div className="hidden sm:flex flex-col items-end">
-                <span className="text-xs font-mono font-bold text-stone-900 leading-none">{user.name.split(' ')[0]}</span>
-                <span className="text-[10px] font-mono text-stone-400 capitalize">{user.provider}</span>
+                <span className="text-xs font-mono font-bold text-stone-900 leading-none">{(user?.name || user?.email || 'User').split(' ')[0]}</span>
+                <span className="text-[10px] font-mono text-stone-400 capitalize">{user?.provider ?? 'Guest'}</span>
               </div>
-              {user.avatar ? (
+              {user?.avatar ? (
                 <img
                   src={user.avatar}
-                  alt={user.name}
+                  alt={user?.name || 'User'}
                   className="w-8 h-8 rounded-none object-cover border border-[#D6D2C4]"
                 />
               ) : (
                 <div className="w-8 h-8 rounded-none bg-stone-950 text-stone-100 flex items-center justify-center text-xs font-mono font-bold">
-                  {user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  {(user?.name || user?.email || 'User').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                 </div>
               )}
               <button
