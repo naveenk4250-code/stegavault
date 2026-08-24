@@ -175,6 +175,12 @@ function AppInner() {
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [decryptResult, setDecryptResult] = useState<any | null>(null);
 
+  // Share Modal & Clipboard state
+  const [activeShareFile, setActiveShareFile] = useState<any | null>(null);
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareExpiry, setShareExpiry] = useState('7 days');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   // File Handlers for custom file upload
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
