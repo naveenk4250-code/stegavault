@@ -110,8 +110,15 @@ const INITIAL_AUDIT_LOGS = [
 // ─── Inner app (needs router context) ────────────────────────────────────────
 function AppInner() {
   const navigate = useNavigate();
-  // User Authentication State
-  const [user, setUser] = useState<OAuthUser & { org: string } | null>(null);
+  // User Authentication State (Persisted across page refreshes)
+  const [user, setUser] = useState<OAuthUser & { org: string } | null>(() => {
+    try {
+      const stored = localStorage.getItem('stegavault_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
 
   // Pick up OAuth user from sessionStorage after callback redirect
   useEffect(() => {
@@ -119,7 +126,9 @@ function AppInner() {
     if (stored) {
       try {
         const u: OAuthUser = JSON.parse(stored);
-        setUser({ ...u, org: 'SecureCloud Enterprise' });
+        const fullUser = { ...u, org: 'SecureCloud Enterprise' };
+        setUser(fullUser);
+        localStorage.setItem('stegavault_user', JSON.stringify(fullUser));
         sessionStorage.removeItem('oauth_user');
       } catch {}
     }
@@ -163,9 +172,18 @@ function AppInner() {
   };
 
   const handleLoginSuccess = (u: OAuthUser) => {
-    setUser({ ...u, org: 'SecureCloud Enterprise' });
+    const fullUser = { ...u, org: 'SecureCloud Enterprise' };
+    setUser(fullUser);
+    localStorage.setItem('stegavault_user', JSON.stringify(fullUser));
     showToast('Authenticated & Vault Loaded');
     navigate('/');
+  };
+
+  const handleSignOut = () => {
+    setUser(null);
+    localStorage.removeItem('stegavault_user');
+    sessionStorage.removeItem('oauth_user');
+    showToast('Signed out successfully');
   };
 
   const copyToClipboard = (text: string, id: string) => {
@@ -400,7 +418,7 @@ function AppInner() {
                 </div>
               )}
               <button
-                onClick={() => setUser(null)}
+                onClick={handleSignOut}
                 className="p-2 text-stone-400 hover:text-rose-600 hover:bg-[#EBE7DC] rounded-none transition-colors"
                 title="Sign Out"
               >
