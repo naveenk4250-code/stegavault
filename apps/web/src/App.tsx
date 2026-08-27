@@ -110,15 +110,64 @@ const INITIAL_AUDIT_LOGS = [
 // ─── Inner app (needs router context) ────────────────────────────────────────
 function AppInner() {
   const navigate = useNavigate();
-  // User Authentication State (Persisted across page refreshes)
+  // Session Duration: 4 Hours (14,400,000 ms)
+  const SESSION_DURATION_MS = 4 * 60 * 60 * 1000;
+
+  // User Authentication State (Persisted with 4-Hour Session Expiration)
   const [user, setUser] = useState<OAuthUser & { org: string } | null>(() => {
     try {
-      const stored = localStorage.getItem('stegavault_user');
-      return stored ? JSON.parse(stored) : null;
+      const storedSession = localStorage.getItem('stegavault_session');
+      if (storedSession) {
+        const session = JSON.parse(storedSession);
+        if (session.expiresAt && Date.now() > session.expiresAt) {
+          localStorage.removeItem('stegavault_session');
+          localStorage.removeItem('stegavault_user');
+          return null;
+        }
+        return session.user;
+      }
+
+      const storedUser = localStorage.getItem('stegavault_user');
+      return storedUser ? JSON.parse(storedUser) : null;
     } catch {
       return null;
     }
   });
+
+  // Helper to store active session with 4-hour expiration
+  const persistSession = (u: OAuthUser) => {
+    const fullUser = { ...u, org: 'SecureCloud Enterprise' };
+    const session = {
+      user: fullUser,
+      loginTimestamp: Date.now(),
+      expiresAt: Date.now() + SESSION_DURATION_MS,
+    };
+    setUser(fullUser);
+    localStorage.setItem('stegavault_session', JSON.stringify(session));
+    localStorage.setItem('stegavault_user', JSON.stringify(fullUser));
+  };
+
+  // Check for expired session on load and periodically
+  useEffect(() => {
+    const checkExpiration = () => {
+      const storedSession = localStorage.getItem('stegavault_session');
+      if (storedSession) {
+        try {
+          const session = JSON.parse(storedSession);
+          if (session.expiresAt && Date.now() > session.expiresAt) {
+            localStorage.removeItem('stegavault_session');
+            localStorage.removeItem('stegavault_user');
+            setUser(null);
+            showToast('YOUR SESSION EXPIRED , LOGIN AGAIN');
+          }
+        } catch {}
+      }
+    };
+
+    checkExpiration();
+    const interval = setInterval(checkExpiration, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Pick up OAuth user from sessionStorage after callback redirect
   useEffect(() => {
@@ -126,9 +175,7 @@ function AppInner() {
     if (stored) {
       try {
         const u: OAuthUser = JSON.parse(stored);
-        const fullUser = { ...u, org: 'SecureCloud Enterprise' };
-        setUser(fullUser);
-        localStorage.setItem('stegavault_user', JSON.stringify(fullUser));
+        persistSession(u);
         sessionStorage.removeItem('oauth_user');
       } catch {}
     }
@@ -217,15 +264,14 @@ function AppInner() {
   };
 
   const handleLoginSuccess = (u: OAuthUser) => {
-    const fullUser = { ...u, org: 'SecureCloud Enterprise' };
-    setUser(fullUser);
-    localStorage.setItem('stegavault_user', JSON.stringify(fullUser));
+    persistSession(u);
     showToast('Authenticated & Vault Loaded');
     navigate('/');
   };
 
   const handleSignOut = () => {
     setUser(null);
+    localStorage.removeItem('stegavault_session');
     localStorage.removeItem('stegavault_user');
     sessionStorage.removeItem('oauth_user');
     showToast('Signed out successfully');
