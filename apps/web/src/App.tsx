@@ -798,8 +798,8 @@ function AppInner() {
 
         {/* TAB 2: ENCRYPT & EMBED PIPELINE */}
         {activeTab === 'encrypt' && (
-          <div className="max-w-3xl mx-auto">
-            <div className="bg-white p-6 sm:p-8 rounded-none border border-[#D6D2C4]">
+          <div className="w-full animate-fade-up">
+            <div className="bg-white p-6 sm:p-10 rounded-none border border-[#D6D2C4]">
               <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#D6D2C4]">
                 <div className="w-10 h-10 rounded-none bg-[#059669]/10 border border-[#059669]/20 flex items-center justify-center">
                   <Lock className="w-5 h-5 text-[#059669]" />
@@ -948,8 +948,8 @@ function AppInner() {
 
         {/* TAB 3: EXTRACT & DECRYPT PIPELINE */}
         {activeTab === 'decrypt' && (
-          <div className="max-w-3xl mx-auto">
-            <div className="bg-white p-6 sm:p-8 rounded-none border border-[#D6D2C4] space-y-6">
+          <div className="w-full animate-fade-up">
+            <div className="bg-white p-6 sm:p-10 rounded-none border border-[#D6D2C4] space-y-6">
               <div className="flex items-center gap-3 pb-4 border-b border-[#D6D2C4]">
                 <div className="w-10 h-10 rounded-none bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
                   <Unlock className="w-5 h-5 text-cyan-600" />
