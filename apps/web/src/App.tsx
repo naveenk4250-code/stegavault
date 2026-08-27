@@ -100,12 +100,16 @@ const INITIAL_SHARES = [
   },
 ];
 
-const INITIAL_AUDIT_LOGS = [
-  { id: 'log-101', event: 'AUTH_SUCCESS', user: 'alex.mercer@enterprise.io', detail: 'Hardware Security Key (FIDO2) + Password authenticated', time: 'Just now', ip: '192.168.1.102', status: 'SUCCESS' },
-  { id: 'log-102', event: 'STEGO_EMBED', user: 'alex.mercer@enterprise.io', detail: 'Embedded 256-bit key into quantum_nebula_4k.png via 1-bit LSB', time: '2 hours ago', ip: '192.168.1.102', status: 'SUCCESS' },
-  { id: 'log-103', event: 'FILE_ENCRYPT', user: 'alex.mercer@enterprise.io', detail: 'Encrypted payload (q3_financial_audit.pdf) using AES-256-GCM', time: '2 hours ago', ip: '192.168.1.102', status: 'SUCCESS' },
-  { id: 'log-104', event: 'SHARE_CREATE', user: 'alex.mercer@enterprise.io', detail: 'Created presigned share link for audit.team@enterprise.io', time: '1 day ago', ip: '192.168.1.102', status: 'SUCCESS' },
-];
+// Real-time audit log — starts empty, populated only by actual user actions
+const INITIAL_AUDIT_LOGS: {
+  id: string;
+  event: string;
+  user: string;
+  detail: string;
+  time: string;
+  ip: string;
+  status: string;
+}[] = [];
 
 // ─── Inner app (needs router context) ────────────────────────────────────────
 function AppInner() {
@@ -263,13 +267,46 @@ function AppInner() {
     setTimeout(() => setToast(null), 3200);
   };
 
+  // ─── Real-Time Audit Log Helper ────────────────────────────────────────────
+  const addLog = (event: string, detail: string, status: 'SUCCESS' | 'FAILED' = 'SUCCESS') => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setLogs((prev) => [
+      {
+        id: `log-${Date.now()}`,
+        event,
+        user: user?.email || 'anonymous',
+        detail,
+        time: timeStr,
+        ip: 'client-side',
+        status,
+      },
+      ...prev,
+    ]);
+  };
+
   const handleLoginSuccess = (u: OAuthUser) => {
     persistSession(u);
+    // Log the login event immediately with the new user's email
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setLogs((prev) => [
+      {
+        id: `log-${Date.now()}`,
+        event: 'AUTH_SUCCESS',
+        user: u.email || u.name || 'unknown',
+        detail: `Authenticated via ${u.provider || 'OAuth'} — session valid for 4 hours`,
+        time: timeStr,
+        ip: 'client-side',
+        status: 'SUCCESS',
+      },
+      ...prev,
+    ]);
     showToast('Authenticated & Vault Loaded');
     navigate('/');
   };
 
   const handleSignOut = () => {
+    addLog('SIGN_OUT', `User ${user?.email || 'unknown'} signed out — session terminated`);
     setUser(null);
     localStorage.removeItem('stegavault_session');
     localStorage.removeItem('stegavault_user');
@@ -325,18 +362,8 @@ function AppInner() {
         };
 
         setFiles((prevFiles) => [newFile, ...prevFiles]);
-        setLogs((prevLogs) => [
-          {
-            id: `log-${Date.now()}`,
-            event: 'STEGO_EMBED',
-            user: user?.email || 'alex.mercer@enterprise.io',
-            detail: `Encrypted ${currentFile.name} & embedded key into ${selectedCover}`,
-            time: 'Just now',
-            ip: '192.168.1.102',
-            status: 'SUCCESS',
-          },
-          ...prevLogs,
-        ]);
+        addLog('FILE_ENCRYPT', `Encrypted "${currentFile.name}" (${formatSize(currentFile.size)}) with ${selectedAlgo}`);
+        addLog('STEGO_EMBED', `Embedded key bits into ${selectedCover} via 1-bit LSB steganography`);
 
         showToast(`Payload ${currentFile.name} encrypted & hidden in ${selectedCover}`);
         setTargetFile(null);
@@ -370,18 +397,7 @@ function AppInner() {
         dataUrl: decDataUrl,
       });
 
-      setLogs((prevLogs) => [
-        {
-          id: `log-${Date.now()}`,
-          event: 'FILE_DECRYPT',
-          user: user?.email || 'alex.mercer@enterprise.io',
-          detail: `Extracted key & decrypted payload ${decName}`,
-          time: 'Just now',
-          ip: '192.168.1.102',
-          status: 'SUCCESS',
-        },
-        ...prevLogs,
-      ]);
+      addLog('FILE_DECRYPT', `Extracted key & decrypted payload "${decName}" (${decSize}) — checksum verified`);
 
       showToast(`Extracted key & verified checksum for ${decName}!`);
     }, 2400);
@@ -400,6 +416,7 @@ function AppInner() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      addLog('FILE_DOWNLOAD', `Downloaded original binary file "${fileName}" from vault`);
       showToast(`Downloaded original file: ${fileName}`);
       return;
     }
@@ -415,6 +432,7 @@ function AppInner() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    addLog('FILE_DOWNLOAD', `Downloaded vault payload "${fileName}"`);
     showToast(`Downloaded ${fileName}`);
   };
 
@@ -752,6 +770,7 @@ function AppInner() {
                             <button
                               onClick={() => {
                                 setActiveTab('decrypt');
+                                addLog('VAULT_ACCESS', `Opened "${file.name}" for key extraction & decryption`);
                                 showToast(`Loaded ${file.name} for key extraction`);
                               }}
                               className="p-2 rounded-none bg-[#EBE7DC] border border-[#D6D2C4] hover:border-[#059669]/50 text-stone-700 hover:text-[#059669] transition-colors"
@@ -763,6 +782,7 @@ function AppInner() {
                               onClick={() => {
                                 setActiveShareFile(file);
                                 setShareEmail('');
+                                addLog('SHARE_INIT', `Initiated presigned share link creation for "${file.name}"`);
                               }}
                               className="p-2 rounded-none bg-[#EBE7DC] border border-[#D6D2C4] hover:border-cyan-600/50 text-stone-700 hover:text-cyan-600 transition-colors"
                               title="Share Link"
@@ -771,6 +791,7 @@ function AppInner() {
                             </button>
                             <button
                               onClick={() => {
+                                addLog('FILE_DELETE', `Permanently deleted encrypted payload "${file.name}" from vault`, 'SUCCESS');
                                 setFiles(files.filter((f) => f.id !== file.id));
                                 showToast(`Deleted ${file.name}`);
                               }}
@@ -1099,19 +1120,35 @@ function AppInner() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#D6D2C4]">
-                {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-[#EBE7DC]/50 transition-colors">
-                    <td className="px-6 py-3.5 font-bold text-[#059669]">{log.event}</td>
-                    <td className="px-6 py-3.5 text-stone-800">{log.user}</td>
-                    <td className="px-6 py-3.5 text-stone-600">{log.detail}</td>
-                    <td className="px-6 py-3.5 text-stone-500">{log.time}</td>
-                    <td className="px-6 py-3.5">
-                      <span className="bg-[#059669]/10 text-[#059669] border border-[#059669]/20 px-2 py-0.5 rounded-none text-[10px] font-bold uppercase">
-                        {log.status}
-                      </span>
+                {logs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-16 text-center">
+                      <div className="flex flex-col items-center gap-3 text-stone-400">
+                        <History className="w-8 h-8 opacity-40" />
+                        <p className="font-mono text-xs uppercase tracking-wider font-semibold">No activity recorded yet</p>
+                        <p className="text-[11px] text-stone-400 font-mono">Actions like encrypt, decrypt, download, delete, and share will appear here in real-time.</p>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  logs.map((log) => (
+                    <tr key={log.id} className="hover:bg-[#EBE7DC]/50 transition-colors">
+                      <td className="px-6 py-3.5 font-bold text-[#059669]">{log.event}</td>
+                      <td className="px-6 py-3.5 text-stone-800">{log.user}</td>
+                      <td className="px-6 py-3.5 text-stone-600">{log.detail}</td>
+                      <td className="px-6 py-3.5 text-stone-500">{log.time}</td>
+                      <td className="px-6 py-3.5">
+                        <span className={`px-2 py-0.5 rounded-none text-[10px] font-bold uppercase border ${
+                          log.status === 'FAILED'
+                            ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                            : 'bg-[#059669]/10 text-[#059669] border-[#059669]/20'
+                        }`}>
+                          {log.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -1155,6 +1192,7 @@ function AppInner() {
             <div className="flex gap-2 pt-2 font-mono uppercase text-xs font-bold">
               <button
                 onClick={() => {
+                  addLog('SHARE_CREATE', `Presigned share link for "${activeShareFile?.name}" dispatched to ${shareEmail || 'recipient'} — expires in ${shareExpiry}`);
                   showToast('Presigned share link generated & dispatched!');
                   setActiveShareFile(null);
                 }}
