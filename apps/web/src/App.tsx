@@ -466,27 +466,25 @@ function AppInner() {
         <div className="w-full px-4 sm:px-8 lg:px-12 h-16 flex items-center justify-between">
           
           {/* Logo & Status */}
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('vault')}>
-            <div className="w-8 h-8 rounded-none bg-stone-950 flex items-center justify-center text-stone-100 font-mono font-bold text-xs">
+          <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => setActiveTab('vault')}>
+            <div className="w-10 h-10 rounded-none bg-stone-950 flex items-center justify-center text-stone-100 font-mono font-bold text-sm shadow-sm">
               SC
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-brand text-xl font-black tracking-wider text-stone-950 uppercase">
-                  SECURE<span className="text-[#059669]">CLOUD</span>
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-none bg-[#059669]/10 text-[#059669] border border-[#059669]/20 font-semibold uppercase">
-                  ENTERPRISE v2.4
-                </span>
-              </div>
+            <div className="flex items-center gap-2.5">
+              <span className="font-brand text-xl font-black tracking-wider text-stone-950 uppercase leading-none">
+                SECURE<span className="text-[#059669]">CLOUD</span>
+              </span>
+              <span className="h-6 px-2.5 inline-flex items-center justify-center rounded-none bg-[#059669]/10 text-[#059669] border border-[#059669]/30 text-[11px] font-mono font-bold uppercase tracking-wider">
+                ENTERPRISE v2.4
+              </span>
             </div>
           </div>
 
           {/* Center Navigation Tabs */}
-          <nav className="hidden md:flex items-center gap-1 bg-[#EBE7DC] p-1 rounded-none border border-[#D6D2C4]">
+          <nav className="hidden md:flex items-center h-10 bg-[#EBE7DC] p-1 rounded-none border border-[#D6D2C4] shadow-sm">
             <button
               onClick={() => setActiveTab('vault')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
+              className={`h-8 flex items-center gap-2 px-4 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
                 activeTab === 'vault'
                   ? 'bg-[#059669] text-white font-bold shadow-sm active'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
@@ -497,7 +495,7 @@ function AppInner() {
             </button>
             <button
               onClick={() => setActiveTab('encrypt')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
+              className={`h-8 flex items-center gap-2 px-4 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
                 activeTab === 'encrypt'
                   ? 'bg-[#059669] text-white font-bold shadow-sm active'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
@@ -508,7 +506,7 @@ function AppInner() {
             </button>
             <button
               onClick={() => setActiveTab('decrypt')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
+              className={`h-8 flex items-center gap-2 px-4 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
                 activeTab === 'decrypt'
                   ? 'bg-[#059669] text-white font-bold shadow-sm active'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
@@ -519,7 +517,7 @@ function AppInner() {
             </button>
             <button
               onClick={() => setActiveTab('shares')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
+              className={`h-8 flex items-center gap-2 px-4 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
                 activeTab === 'shares'
                   ? 'bg-[#059669] text-white font-bold shadow-sm active'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
@@ -530,7 +528,7 @@ function AppInner() {
             </button>
             <button
               onClick={() => setActiveTab('audit')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
+              className={`h-8 flex items-center gap-2 px-4 rounded-none font-mono uppercase text-xs tracking-wider transition-all tab-indicator ${
                 activeTab === 'audit'
                   ? 'bg-[#059669] text-white font-bold shadow-sm active'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-[#E5E1D8]'
@@ -542,37 +540,38 @@ function AppInner() {
           </nav>
 
           {/* Right Action Button & Profile */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <ThemeToggle />
+            
             <button
               onClick={() => setActiveTab('encrypt')}
-              className="mag-btn flex items-center gap-2 bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest px-4 py-2 rounded-none transition-all shadow-[2px_2px_0_0_#1C1917]"
+              className="mag-btn h-10 px-5 flex items-center gap-2 bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest rounded-none transition-all shadow-[2px_2px_0_0_#1C1917] active:scale-95 shrink-0"
             >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <Plus className="w-4 h-4 stroke-[2.5]" />
               <span className="hidden sm:inline">Encrypt Payload</span>
             </button>
 
-            <div className="h-6 w-px bg-[#D6D2C4] hidden sm:block" />
+            <div className="h-7 w-px bg-[#D6D2C4] hidden sm:block mx-1" />
 
             <div className="flex items-center gap-2.5">
               <div className="hidden sm:flex flex-col items-end">
                 <span className="text-xs font-mono font-bold text-stone-900 leading-none">{(user?.name || user?.email || 'User').split(' ')[0]}</span>
-                <span className="text-[10px] font-mono text-stone-400 capitalize">{user?.provider ?? 'Guest'}</span>
+                <span className="text-[10px] font-mono text-stone-400 capitalize mt-0.5">{user?.provider ?? 'Guest'}</span>
               </div>
               {user?.avatar ? (
                 <img
                   src={user.avatar}
                   alt={user?.name || 'User'}
-                  className="w-8 h-8 rounded-none object-cover border border-[#D6D2C4]"
+                  className="w-10 h-10 rounded-none object-cover border border-[#D6D2C4]"
                 />
               ) : (
-                <div className="w-8 h-8 rounded-none bg-stone-950 text-stone-100 flex items-center justify-center text-xs font-mono font-bold">
+                <div className="w-10 h-10 rounded-none bg-stone-950 text-stone-100 flex items-center justify-center text-xs font-mono font-bold shadow-sm">
                   {(user?.name || user?.email || 'User').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                 </div>
               )}
               <button
                 onClick={handleSignOut}
-                className="p-2 text-stone-400 hover:text-rose-600 hover:bg-[#EBE7DC] rounded-none transition-colors"
+                className="w-10 h-10 flex items-center justify-center text-stone-500 hover:text-rose-600 bg-[#EBE7DC] hover:bg-[#E5E1D8] border border-[#D6D2C4] rounded-none transition-colors shrink-0"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />
