@@ -466,17 +466,15 @@ function AppInner() {
         <div className="w-full px-4 sm:px-8 lg:px-12 h-16 flex items-center justify-between">
           
           {/* Logo & Status */}
-          <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => setActiveTab('vault')}>
-            <div className="w-10 h-10 rounded-none bg-stone-950 flex items-center justify-center text-stone-100 font-mono font-bold text-sm shadow-sm">
+          <div className="flex items-center gap-3 cursor-pointer select-none shrink-0" onClick={() => setActiveTab('vault')}>
+            <div className="w-10 h-10 rounded-none bg-stone-950 flex items-center justify-center text-stone-100 font-mono font-bold text-sm shadow-sm shrink-0">
               SC
             </div>
-            <div className="flex items-center gap-2.5">
-              <span className="font-brand text-xl font-black tracking-wider text-stone-950 uppercase leading-none">
-                SECURE<span className="text-[#059669]">CLOUD</span>
-              </span>
-              <span className="h-6 px-2.5 inline-flex items-center justify-center rounded-none bg-[#059669]/10 text-[#059669] border border-[#059669]/30 text-[11px] font-mono font-bold uppercase tracking-wider">
-                ENTERPRISE v2.4
-              </span>
+            <span className="font-brand text-xl font-black tracking-wider text-stone-950 uppercase leading-none shrink-0">
+              SECURE<span className="text-[#059669]">CLOUD</span>
+            </span>
+            <div className="h-10 px-3.5 flex items-center justify-center rounded-none bg-[#059669]/10 text-[#059669] border border-[#059669]/30 text-xs font-mono font-bold uppercase tracking-wider whitespace-nowrap shrink-0 shadow-sm">
+              ENTERPRISE v2.4
             </div>
           </div>
 
