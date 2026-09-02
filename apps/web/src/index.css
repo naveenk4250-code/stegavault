@@ -108,6 +108,8 @@
 .dark-mode .hover\:bg-\[\#E5E1D8\]:hover { background-color: var(--bg-secondary) !important; }
 .dark-mode .hover\:bg-stone-50:hover { background-color: var(--bg-secondary) !important; }
 .dark-mode .hover\:border-stone-400:hover { border-color: var(--text-muted) !important; }
+.dark-mode nav a.underline-slide:hover,
+.dark-mode button.underline-slide:hover { color: #10b981 !important; }
 
 /* ─── Typography helpers ────────────────────────────────────────────────────── */
 .font-serif-italic {
@@ -736,6 +738,16 @@
   transition: width var(--transition-base);
 }
 .underline-slide:hover::after { width: 100%; }
+
+/* ─── Nav link hover: always emerald, never black ──────────────────────────── */
+nav a.underline-slide:hover,
+nav a.underline-slide:focus {
+  color: #059669 !important;
+}
+button.underline-slide:hover,
+button.underline-slide:focus {
+  color: #059669 !important;
+}
 
 /* ─── Toast slide up ────────────────────────────────────────────────────────── */
 .toast-enter {
