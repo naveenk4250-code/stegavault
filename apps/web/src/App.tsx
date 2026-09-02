@@ -632,7 +632,7 @@ function AppInner() {
 
         {/* TAB 1: VAULT FILES DASHBOARD */}
         {activeTab === 'vault' && (
-          <div className="space-y-6 animate-fade-up">
+          <div className="space-y-6 tab-content-enter">
             {/* Control Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3 flex-1">
@@ -816,7 +816,7 @@ function AppInner() {
 
         {/* TAB 2: ENCRYPT & EMBED PIPELINE */}
         {activeTab === 'encrypt' && (
-          <div className="w-full animate-fade-up">
+          <div className="w-full tab-content-enter">
             <div className="bg-white p-6 sm:p-10 rounded-none border border-[#D6D2C4]">
               <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#D6D2C4]">
                 <div className="w-10 h-10 rounded-none bg-[#059669]/10 border border-[#059669]/20 flex items-center justify-center">
@@ -966,7 +966,7 @@ function AppInner() {
 
         {/* TAB 3: EXTRACT & DECRYPT PIPELINE */}
         {activeTab === 'decrypt' && (
-          <div className="w-full animate-fade-up">
+          <div className="w-full tab-content-enter">
             <div className="bg-white p-6 sm:p-10 rounded-none border border-[#D6D2C4] space-y-6">
               <div className="flex items-center gap-3 pb-4 border-b border-[#D6D2C4]">
                 <div className="w-10 h-10 rounded-none bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
@@ -1061,7 +1061,7 @@ function AppInner() {
 
         {/* TAB 4: SHARED ACCESS MANAGER */}
         {activeTab === 'shares' && (
-          <div className="space-y-6">
+          <div className="space-y-6 tab-content-enter">
             <div className="bg-white rounded-none overflow-hidden border border-[#D6D2C4]">
               <div className="px-6 py-4 border-b border-[#D6D2C4] bg-[#F7F5F0] flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1098,7 +1098,7 @@ function AppInner() {
 
         {/* TAB 5: ENTERPRISE AUDIT LOGS */}
         {activeTab === 'audit' && (
-          <div className="bg-white rounded-none overflow-hidden border border-[#D6D2C4]">
+          <div className="w-full tab-content-enter">
             <div className="px-6 py-4 border-b border-[#D6D2C4] bg-[#F7F5F0] flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <History className="w-4 h-4 text-purple-600" />

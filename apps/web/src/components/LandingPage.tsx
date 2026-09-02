@@ -181,7 +181,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
 
 
   return (
-    <div className="min-h-screen bg-[#F0EDE4] text-stone-900 font-sans selection:bg-[#059669]/20 selection:text-[#059669]">
+    <div className="min-h-screen bg-[#F0EDE4] text-stone-900 font-sans selection:bg-[#059669]/20 selection:text-[#059669] page-enter">
       
       {/* TOP TAGLINE MARQUEE BAR */}
       <div className="border-b border-[#D6D2C4] py-2 px-4 sm:px-8 text-center bg-[#EBE7DC] overflow-hidden">
