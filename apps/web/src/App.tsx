@@ -113,7 +113,6 @@ const INITIAL_AUDIT_LOGS: {
 
 // ─── Inner app (needs router context) ────────────────────────────────────────
 function AppInner() {
-  const navigate = useNavigate();
   // Session Duration: 4 Hours (14,400,000 ms)
   const SESSION_DURATION_MS = 4 * 60 * 60 * 1000;
 
@@ -302,7 +301,6 @@ function AppInner() {
       ...prev,
     ]);
     showToast('Authenticated & Vault Loaded');
-    navigate('/');
   };
 
   const handleSignOut = () => {
