@@ -463,7 +463,7 @@ function AppInner() {
 
       {/* TOP NAVIGATION BAR */}
       <header className="sticky top-0 z-40 bg-[#F0EDE4]/95 backdrop-blur-md border-b border-[#D6D2C4]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="w-full px-4 sm:px-8 lg:px-12 h-16 flex items-center justify-between">
           
           {/* Logo & Status */}
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('vault')}>
@@ -584,7 +584,7 @@ function AppInner() {
       </header>
 
       {/* MAIN CONTAINER */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <main className="flex-1 w-full px-4 sm:px-8 lg:px-12 py-8 space-y-6">
 
         {/* METRICS & STATUS RIBBON */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-up">
@@ -1213,7 +1213,7 @@ function AppInner() {
 
       {/* FOOTER */}
       <footer className="border-t border-[#D6D2C4] py-6 bg-[#EBE7DC]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-stone-500 uppercase">
+        <div className="w-full px-4 sm:px-8 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-stone-500 uppercase">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-[#059669]" />
             <span>SecureCloud Enterprise v2.4 · Zero-Knowledge Cryptographic Storage Engine</span>
