@@ -7,7 +7,7 @@ import { AnimatedOAuthButton } from './AnimatedOAuthButton';
 interface AuthModalProps {
   initialMode?: 'login' | 'signup';
   onClose: () => void;
-  onEmailLogin: (email: string, password: string) => void;
+  onEmailLogin: (email: string, password: string, fullName?: string) => void;
   onOAuthSuccess?: (user: OAuthUser) => void;
 }
 
@@ -49,16 +49,22 @@ function DiscordIcon() {
 
 export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAuthSuccess }: AuthModalProps) {
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [oauthLoading, setOauthLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
 
+    if (mode === 'signup' && !fullName.trim()) {
+      setAuthError('Please enter your full name');
+      return;
+    }
     if (!email || !email.includes('@')) {
       setAuthError('Please enter a valid email address');
       return;
@@ -68,7 +74,11 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
       return;
     }
 
-    onEmailLogin(email, password);
+    setIsSubmitting(true);
+    setTimeout(() => {
+      setIsSubmitting(false);
+      onEmailLogin(email, password, fullName.trim() || undefined);
+    }, 450);
   };
 
   // ─── Google OAuth (client-side, no backend required) ─────────────────────
@@ -203,6 +213,23 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
 
           {/* Email / Password Form */}
           <form onSubmit={handleEmailSubmit} className="space-y-3">
+            {mode === 'signup' && (
+              <div className="animate-fade-in">
+                <label className="block text-[10px] font-mono font-bold text-stone-700 uppercase mb-1.5 tracking-wider">
+                  Full Name / Organization
+                </label>
+                <input
+                  id="auth-name"
+                  type="text"
+                  required
+                  placeholder="e.g. Alex Mercer"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="neo-input text-xs"
+                />
+              </div>
+            )}
+
             <div>
               <label className="block text-[10px] font-mono font-bold text-stone-700 uppercase mb-1.5 tracking-wider">
                 Email Address
@@ -242,28 +269,27 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-[11px] font-mono text-stone-500 pt-0.5">
-              <span>Min password: 6 chars</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('alex.mercer@enterprise.io');
-                  setPassword('MasterKey#2026!');
-                  setAuthError(null);
-                }}
-                className="text-[#059669] font-bold hover:underline"
-              >
-                Autofill Demo Creds
-              </button>
+            <div className="text-[11px] font-mono text-stone-500 pt-0.5">
+              <span>Minimum password length: 6 characters</span>
             </div>
 
             <button
               id="auth-submit"
               type="submit"
-              className="neo-submit-button text-xs tracking-widest mt-1"
+              disabled={isSubmitting}
+              className={`neo-submit-button text-xs tracking-widest mt-1 flex items-center justify-center gap-2 ${isSubmitting ? 'opacity-80 pointer-events-none' : ''}`}
             >
-              <Lock className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>{mode === 'login' ? 'Log In to Vault' : 'Create Account'}</span>
+              {isSubmitting ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-stone-100 border-t-transparent rounded-full animate-spin" />
+                  <span>{mode === 'login' ? 'Authenticating...' : 'Creating Vault...'}</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>{mode === 'login' ? 'Log In to Vault' : 'Create Account'}</span>
+                </>
+              )}
             </button>
           </form>
 

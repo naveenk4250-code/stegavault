@@ -213,10 +213,10 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
 
           {/* Navigation Links */}
           <nav className="hidden md:flex items-center gap-10 text-xs font-mono tracking-wider text-stone-600 uppercase">
-            <a href="#overview" className="underline-slide hover:text-stone-950 transition-colors">Overview</a>
-            <a href="#interactive-demo" className="underline-slide hover:text-stone-950 transition-colors">Pixel Inspector</a>
-            <a href="#architecture" className="underline-slide hover:text-stone-950 transition-colors">Architecture</a>
-            <a href="#security-spec" className="underline-slide hover:text-stone-950 transition-colors">Security Spec</a>
+            <a href="#overview" className="underline-slide hover:text-[#059669] transition-colors">Overview</a>
+            <a href="#interactive-demo" className="underline-slide hover:text-[#059669] transition-colors">Pixel Inspector</a>
+            <a href="#architecture" className="underline-slide hover:text-[#059669] transition-colors">Architecture</a>
+            <a href="#security-spec" className="underline-slide hover:text-[#059669] transition-colors">Security Spec</a>
           </nav>
 
           <div className="flex items-center gap-4">
@@ -224,7 +224,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
             <button
               id="nav-login"
               onClick={openLogin}
-              className="text-xs font-mono tracking-wider text-stone-700 hover:text-stone-950 uppercase px-2 py-1 transition-colors underline-slide"
+              className="text-xs font-mono tracking-wider text-stone-700 hover:text-[#059669] uppercase px-2 py-1 transition-colors underline-slide"
             >
               Log In
             </button>
@@ -683,11 +683,11 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
         <AuthModal
           initialMode={authMode}
           onClose={() => setShowAuthModal(false)}
-          onEmailLogin={(email, _password) => {
+          onEmailLogin={(email, _password, fullName) => {
             setShowAuthModal(false);
             onLoginSuccess({
               email,
-              name: email.split('@')[0].replace(/[._]/g, ' '),
+              name: fullName || email.split('@')[0].replace(/[._]/g, ' '),
               avatar: null,
               provider: 'email',
             });
