@@ -687,8 +687,7 @@
 }
 
 .page-enter {
-  animation: smoothPageEnter 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: opacity, transform, filter;
+  animation: smoothPageEnter 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes tabContentEnter {
@@ -740,12 +739,19 @@
 .underline-slide:hover::after { width: 100%; }
 
 /* ─── Nav link hover: always emerald, never black ──────────────────────────── */
+nav a.underline-slide,
+nav a.underline-slide:visited,
+nav a.underline-slide:link {
+  color: inherit;
+}
 nav a.underline-slide:hover,
-nav a.underline-slide:focus {
+nav a.underline-slide:focus,
+nav a.underline-slide:active {
   color: #059669 !important;
 }
 button.underline-slide:hover,
-button.underline-slide:focus {
+button.underline-slide:focus,
+button.underline-slide:active {
   color: #059669 !important;
 }
 

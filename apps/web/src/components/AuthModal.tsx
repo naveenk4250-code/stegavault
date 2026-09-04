@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Lock, Eye, EyeOff, AlertCircle, X } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { fetchGoogleUser, initiateDiscordOAuth, type OAuthUser } from '../lib/oauth';
@@ -61,15 +62,19 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
     e.preventDefault();
     setAuthError(null);
 
-    if (mode === 'signup' && !fullName.trim()) {
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password;
+    const trimmedName = fullName.trim();
+
+    if (mode === 'signup' && !trimmedName) {
       setAuthError('Please enter your full name');
       return;
     }
-    if (!email || !email.includes('@')) {
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
       setAuthError('Please enter a valid email address');
       return;
     }
-    if (!password || password.length < 6) {
+    if (!trimmedPassword || trimmedPassword.length < 6) {
       setAuthError('Password must be at least 6 characters');
       return;
     }
@@ -77,8 +82,8 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
     setIsSubmitting(true);
     setTimeout(() => {
       setIsSubmitting(false);
-      onEmailLogin(email, password, fullName.trim() || undefined);
-    }, 450);
+      onEmailLogin(trimmedEmail, trimmedPassword, trimmedName || undefined);
+    }, 200);
   };
 
   // ─── Google OAuth (client-side, no backend required) ─────────────────────
@@ -109,18 +114,18 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 bg-stone-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-stone-950/75 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 overflow-y-auto"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="neo-modal">
+      <div className="neo-modal my-auto">
         
         {/* Close Button */}
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-4 text-stone-400 hover:text-stone-950 transition-colors"
+          className="absolute right-4 top-4 text-stone-400 hover:text-stone-950 transition-colors z-10"
         >
           <X className="w-5 h-5" />
         </button>
@@ -145,6 +150,7 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
           <div className="flex border border-[#D6D2C4] bg-[#EBE7DC]">
             <button
               id="auth-tab-login"
+              type="button"
               onClick={() => { setMode('login'); setAuthError(null); }}
               className={`flex-1 py-2.5 text-xs font-mono uppercase tracking-widest font-bold transition-all ${
                 mode === 'login'
@@ -156,6 +162,7 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
             </button>
             <button
               id="auth-tab-signup"
+              type="button"
               onClick={() => { setMode('signup'); setAuthError(null); }}
               className={`flex-1 py-2.5 text-xs font-mono uppercase tracking-widest font-bold transition-all ${
                 mode === 'signup'
@@ -175,26 +182,25 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
           </p>
 
           {/* OAuth Buttons */}
-            <div className="space-y-2.5">
-              <AnimatedOAuthButton
-                provider="google"
-                onClick={() => handleOAuth('google')}
-                className={`w-full text-xs font-mono font-bold uppercase tracking-wider ${oauthLoading ? 'opacity-60 pointer-events-none' : ''}`}
-              >
-                <GoogleIcon />
-                <span>{oauthLoading ? 'Signing in...' : (mode === 'login' ? 'Continue' : 'Sign up')} with Google</span>
-              </AnimatedOAuthButton>
+          <div className="space-y-2.5">
+            <AnimatedOAuthButton
+              provider="google"
+              onClick={() => handleOAuth('google')}
+              className={`w-full text-xs font-mono font-bold uppercase tracking-wider ${oauthLoading ? 'opacity-60 pointer-events-none' : ''}`}
+            >
+              <GoogleIcon />
+              <span>{oauthLoading ? 'Signing in...' : (mode === 'login' ? 'Continue' : 'Sign up')} with Google</span>
+            </AnimatedOAuthButton>
 
-              <AnimatedOAuthButton
-                provider="discord"
-                onClick={() => handleOAuth('discord')}
-                className="w-full text-xs font-mono font-bold uppercase tracking-wider"
-              >
-                <DiscordIcon />
-                <span>{mode === 'login' ? 'Continue' : 'Sign up'} with Discord</span>
-              </AnimatedOAuthButton>
-
-            </div>
+            <AnimatedOAuthButton
+              provider="discord"
+              onClick={() => handleOAuth('discord')}
+              className="w-full text-xs font-mono font-bold uppercase tracking-wider"
+            >
+              <DiscordIcon />
+              <span>{mode === 'login' ? 'Continue' : 'Sign up'} with Discord</span>
+            </AnimatedOAuthButton>
+          </div>
 
           {/* Divider */}
           <div className="flex items-center gap-3">
@@ -221,7 +227,6 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
                 <input
                   id="auth-name"
                   type="text"
-                  required
                   placeholder="e.g. Alex Mercer"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -237,7 +242,6 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
               <input
                 id="auth-email"
                 type="email"
-                required
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -253,7 +257,6 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
                 <input
                   id="auth-password"
                   type={showPassword ? 'text' : 'password'}
-                  required
                   placeholder={mode === 'signup' ? 'Create a strong password' : 'Enter your password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -277,7 +280,7 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
               id="auth-submit"
               type="submit"
               disabled={isSubmitting}
-              className={`neo-submit-button text-xs tracking-widest mt-1 flex items-center justify-center gap-2 ${isSubmitting ? 'opacity-80 pointer-events-none' : ''}`}
+              className={`w-full py-3 px-4 bg-[#059669] hover:bg-[#047857] active:bg-[#065f46] text-white font-mono font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 border-2 border-stone-950 shadow-[4px_4px_0_0_#1C1917] hover:shadow-[2px_2px_0_0_#1C1917] hover:translate-x-[2px] hover:translate-y-[2px] transition-all cursor-pointer mt-2 ${isSubmitting ? 'opacity-80 pointer-events-none' : ''}`}
             >
               {isSubmitting ? (
                 <>
@@ -299,8 +302,9 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
               <>
                 No account?{' '}
                 <button
+                  type="button"
                   onClick={() => { setMode('signup'); setAuthError(null); }}
-                  className="text-[#059669] font-bold hover:underline"
+                  className="text-[#059669] font-bold hover:underline cursor-pointer"
                 >
                   Sign up free
                 </button>
@@ -309,8 +313,9 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
               <>
                 Already have an account?{' '}
                 <button
+                  type="button"
                   onClick={() => { setMode('login'); setAuthError(null); }}
-                  className="text-[#059669] font-bold hover:underline"
+                  className="text-[#059669] font-bold hover:underline cursor-pointer"
                 >
                   Log in
                 </button>
@@ -324,6 +329,7 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
           End-to-end encrypted · Zero server plaintext · AES-256-GCM
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
