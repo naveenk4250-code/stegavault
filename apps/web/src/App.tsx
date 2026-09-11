@@ -11,6 +11,13 @@ import {
   computeSHA256,
 } from './lib/crypto';
 import {
+  embedLSB,
+  extractLSB,
+  generateCoverBlob,
+  blobToDataUrl,
+  dataUrlToBlob,
+} from './lib/steganography';
+import {
   Shield,
   Lock,
   Unlock,
@@ -321,8 +328,10 @@ function AppInner() {
   // Custom File Upload & Stego refs
   const encryptFileInputRef = useRef<HTMLInputElement>(null);
   const stegoFileInputRef = useRef<HTMLInputElement>(null);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
   const [targetFile, setTargetFile] = useState<File | null>(null);
   const [stegoContainerFile, setStegoContainerFile] = useState<File | null>(null);
+  const [customCoverFile, setCustomCoverFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [passphrase, setPassphrase] = useState('');
   const [selectedAlgo, setSelectedAlgo] = useState<'AES-256-GCM' | 'ChaCha20-Poly1305'>('AES-256-GCM');
@@ -448,14 +457,14 @@ function AppInner() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  // Handle Encrypt Submission (Real client-side AES-256-GCM via Web Crypto API)
+  // Handle Encrypt Submission (Real client-side AES-256-GCM + 1-Bit LSB Steganography)
   const handleEncryptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetFile) return showToast('Please select a file to encrypt');
     if (!passphrase) return showToast('Please enter a secret key passphrase');
 
     setIsEncrypting(true);
-    setEncryptStep(1); // Client-Side PBKDF2 Key Derivation (about to run)
+    setEncryptStep(1); // 1. Client-Side PBKDF2 Key Derivation (about to run)
 
     try {
       const currentFile = targetFile;
@@ -464,21 +473,25 @@ function AppInner() {
       // 1. Real PBKDF2 (250,000 iter, SHA-256) + AES-256-GCM encryption
       const packedCiphertext = await encryptFile(currentFile, secretPass);
       console.log('Real AES-256-GCM packed ciphertext (length: ' + packedCiphertext.byteLength + ' bytes):', packedCiphertext);
-      setEncryptStep(2); // AES-256-GCM done -> ciphertext ready
+      setEncryptStep(2); // 2. AES-256-GCM done -> ciphertext ready
 
       // 2. Real SHA-256 checksum of original plaintext file
       const originalBuffer = await currentFile.arrayBuffer();
       const realHash = await computeSHA256(originalBuffer);
 
-      // 3. Serialize packed ciphertext [salt(16) + iv(12) + ciphertext + authTag(16)]
-      const cipherBase64 = uint8ArrayToBase64(packedCiphertext);
-      const cipherDataUrl = `data:application/octet-stream;base64,${cipherBase64}`;
+      // 3. Real 1-Bit LSB Steganographic Embedding into Cover PNG
+      setEncryptStep(3); // 3. Hiding bits into LSB of cover image pixels
+      const coverBlob = customCoverFile || (await generateCoverBlob(selectedCover, packedCiphertext.byteLength));
+      console.log('Embedding packed ciphertext into cover image pixels via 1-bit LSB...');
+      const stegoBlob = await embedLSB(coverBlob, packedCiphertext);
+      console.log('Stego PNG Blob generated successfully (size: ' + stegoBlob.size + ' bytes)');
+      const stegoDataUrl = await blobToDataUrl(stegoBlob);
 
-      setTimeout(() => setEncryptStep(3), 600); // LSB Spatial Embedding into Cover PNG
-      setTimeout(() => setEncryptStep(4), 1400); // Presigned S3 Encrypted Storage Upload
+      setEncryptStep(4); // 4. Finalizing upload & storing into encrypted vault
 
       setTimeout(() => {
         setIsEncrypting(false);
+        const coverName = customCoverFile ? customCoverFile.name : selectedCover;
         const newFile = {
           id: `sec-${Date.now()}`,
           name: currentFile.name,
@@ -487,31 +500,33 @@ function AppInner() {
           hash: `${realHash.substring(0, 10)}...${realHash.substring(realHash.length - 4)}`,
           fullHash: realHash,
           algo: selectedAlgo,
-          stegoCover: selectedCover,
+          stegoCover: coverName,
           stegoCapacity: `${formatSize(Math.max(currentFile.size * 2, 4000000))} Capacity`,
           uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
           status: 'Encrypted & Hidden',
-          dataUrl: cipherDataUrl,
-          encryptedBytesBase64: cipherBase64,
+          dataUrl: stegoDataUrl, // Real Stego PNG containing embedded ciphertext!
+          stegoDataUrl: stegoDataUrl,
+          encryptedBytesBase64: uint8ArrayToBase64(packedCiphertext),
           ownerEmail: user?.email || 'anonymous',
         };
 
         setFiles((prevFiles) => [newFile, ...prevFiles]);
         addLog('FILE_ENCRYPT', `Encrypted "${currentFile.name}" (${formatSize(currentFile.size)}) with real AES-256-GCM (PBKDF2 250k iter)`);
-        addLog('STEGO_EMBED', `Embedded key bits into ${selectedCover} via 1-bit LSB steganography`);
+        addLog('STEGO_EMBED', `Embedded ${packedCiphertext.byteLength} ciphertext bytes into ${coverName} via 1-bit LSB spatial pixels`);
 
-        showToast(`Payload ${currentFile.name} encrypted & hidden in ${selectedCover}`);
+        showToast(`Payload ${currentFile.name} encrypted & hidden in ${coverName}`);
         setTargetFile(null);
+        setCustomCoverFile(null);
         setPassphrase('');
         setActiveTab('vault');
-      }, 2000);
+      }, 1500);
     } catch (err: any) {
       setIsEncrypting(false);
-      showToast(`Encryption failed: ${err?.message || 'Web Crypto error'}`);
+      showToast(`Pipeline failed: ${err?.message || 'Web Crypto / Canvas error'}`);
     }
   };
 
-  // Handle Decrypt Submission (Real client-side AES-256-GCM verification & decryption)
+  // Handle Decrypt Submission (Real 1-Bit LSB Extraction + AES-256-GCM Decryption)
   const handleDecryptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!decryptPassphrase) return showToast('Please enter decryption passphrase');
@@ -520,31 +535,44 @@ function AppInner() {
     let decName = 'decrypted_payload';
     let mimeType = 'application/octet-stream';
 
-    if (stegoContainerFile) {
-      decName = stegoContainerFile.name.replace(/\.[^/.]+$/, "");
-      const buf = await stegoContainerFile.arrayBuffer();
-      packedBytes = new Uint8Array(buf);
-    } else if (files.length > 0) {
-      // Use the most recent vault file
-      const target = files[0];
-      decName = target.name;
-      mimeType = target.type || 'application/octet-stream';
-      if (target.encryptedBytesBase64) {
-        packedBytes = base64ToUint8Array(target.encryptedBytesBase64);
-      } else if (target.dataUrl && target.dataUrl.startsWith('data:application/octet-stream;base64,')) {
-        packedBytes = base64ToUint8Array(target.dataUrl.replace('data:application/octet-stream;base64,', ''));
-      }
-    }
-
-    if (!packedBytes || packedBytes.length < 28) {
-      return showToast('Please upload an encrypted stego container or select a file in your vault.');
-    }
-
     setIsDecrypting(true);
     setDecryptResult(null);
 
     try {
-      // Real Web Crypto decryptPacked: verifies GCM 16-byte auth tag. Throws OperationError if wrong passphrase!
+      if (stegoContainerFile) {
+        decName = stegoContainerFile.name.replace(/\.[^/.]+$/, "");
+        console.log('Extracting payload from uploaded stego container:', stegoContainerFile.name);
+        try {
+          // 1. Real 1-Bit LSB extraction from image pixels
+          packedBytes = await extractLSB(stegoContainerFile);
+          console.log(`Extracted ${packedBytes.byteLength} bytes from stego container via LSB.`);
+        } catch (lsbErr: any) {
+          console.warn('LSB extraction failed, attempting direct binary read:', lsbErr.message);
+          const buf = await stegoContainerFile.arrayBuffer();
+          packedBytes = new Uint8Array(buf);
+        }
+      } else if (files.length > 0) {
+        // Use the most recent vault file
+        const target = files[0];
+        decName = target.name;
+        mimeType = target.type || 'application/octet-stream';
+
+        if (target.stegoDataUrl || (target.dataUrl && target.dataUrl.startsWith('data:image/png'))) {
+          // Extract from the stego PNG data URL
+          const stegoBlob = dataUrlToBlob(target.stegoDataUrl || target.dataUrl);
+          packedBytes = await extractLSB(stegoBlob);
+          console.log(`Extracted ${packedBytes.byteLength} bytes from vault stego PNG via LSB.`);
+        } else if (target.encryptedBytesBase64) {
+          packedBytes = base64ToUint8Array(target.encryptedBytesBase64);
+        }
+      }
+
+      if (!packedBytes || packedBytes.length < 28) {
+        setIsDecrypting(false);
+        return showToast('No valid steganographic container or encrypted file found.');
+      }
+
+      // 2. Real Web Crypto decryptPacked: verifies GCM 16-byte auth tag. Throws OperationError if wrong passphrase!
       const decryptedBuffer = await decryptPacked(packedBytes, decryptPassphrase);
       const checksum = await computeSHA256(decryptedBuffer);
 
@@ -560,8 +588,9 @@ function AppInner() {
         dataUrl: decryptedUrl,
       });
 
+      addLog('STEGO_EXTRACT', `Extracted ${packedBytes.byteLength} bytes from 1-bit LSB pixels of stego container`);
       addLog('FILE_DECRYPT', `Decrypted "${decName}" with real AES-256-GCM — Auth tag verified & SHA-256 checksum matched`);
-      showToast(`Decrypted & verified checksum for ${decName}!`);
+      showToast(`Payload extracted from stego container & verified for ${decName}!`);
     } catch {
       setIsDecrypting(false);
       showToast('Decryption failed: Incorrect passphrase or authentication tag mismatch!');
@@ -569,7 +598,7 @@ function AppInner() {
     }
   };
 
-  // Handle Binary Download (Downloads original binary photo/file intact!)
+  // Handle Binary Download (Downloads original binary photo/file or stego container intact!)
   const handleDownloadDecrypted = (fileObj: any) => {
     if (fileObj && typeof fileObj === 'object' && fileObj.dataUrl) {
       const a = document.createElement('a');
@@ -585,17 +614,19 @@ function AppInner() {
 
     const targetItem = typeof fileObj === 'object' ? fileObj : files.find(f => f.name === fileObj || f.id === fileObj);
     const fileName = typeof fileObj === 'string' ? fileObj : (fileObj?.name || 'downloaded_payload');
-    const dataUrl = targetItem?.dataUrl;
+    const dataUrl = targetItem?.stegoDataUrl || targetItem?.dataUrl;
 
     if (dataUrl) {
+      const isStegoPng = dataUrl.startsWith('data:image/png');
+      const downloadName = isStegoPng ? `${fileName.replace(/\.[^/.]+$/, '')}_stego.png` : fileName;
       const a = document.createElement('a');
       a.href = dataUrl;
-      a.download = fileName;
+      a.download = downloadName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      addLog('FILE_DOWNLOAD', `Downloaded payload "${fileName}"`);
-      showToast(`Downloaded: ${fileName}`);
+      addLog('FILE_DOWNLOAD', `Downloaded ${isStegoPng ? 'stego container PNG' : 'payload'} "${downloadName}"`);
+      showToast(`Downloaded ${isStegoPng ? 'stego PNG container' : 'payload'}: ${downloadName}`);
       return;
     }
 
@@ -1083,9 +1114,31 @@ function AppInner() {
 
                 {/* Step 3: Stego Container Picker */}
                 <div>
-                  <label className="block text-xs font-mono font-semibold uppercase text-stone-700 mb-2">
-                    3. Select Steganographic PNG Cover Image
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-mono font-semibold uppercase text-stone-700">
+                      3. Select Steganographic PNG Cover Image
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => coverFileInputRef.current?.click()}
+                      className="text-[11px] font-mono text-[#059669] hover:underline flex items-center gap-1 uppercase font-bold"
+                    >
+                      <Upload className="w-3 h-3" />
+                      {customCoverFile ? `Custom: ${customCoverFile.name}` : '+ Custom Cover PNG'}
+                    </button>
+                    <input
+                      type="file"
+                      accept="image/png,image/*"
+                      ref={coverFileInputRef}
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setCustomCoverFile(e.target.files[0]);
+                          showToast(`Selected custom cover: ${e.target.files[0].name}`);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </div>
                   <div className="grid grid-cols-3 gap-3">
                     {[
                       { id: 'quantum_nebula_4k.png', name: 'Quantum Nebula PNG', cap: '16 MB Capacity' },
@@ -1094,9 +1147,12 @@ function AppInner() {
                     ].map((img) => (
                       <div
                         key={img.id}
-                        onClick={() => setSelectedCover(img.id)}
+                        onClick={() => {
+                          setSelectedCover(img.id);
+                          setCustomCoverFile(null);
+                        }}
                         className={`p-3 rounded-none border cursor-pointer transition-all ${
-                          selectedCover === img.id
+                          !customCoverFile && selectedCover === img.id
                             ? 'bg-[#059669]/10 border-[#059669] text-[#059669]'
                             : 'bg-white border-[#D6D2C4] text-stone-600 hover:border-stone-400'
                         }`}
@@ -1107,6 +1163,18 @@ function AppInner() {
                       </div>
                     ))}
                   </div>
+                  {customCoverFile && (
+                    <div className="mt-2 p-2 bg-[#059669]/10 border border-[#059669]/30 flex items-center justify-between text-xs font-mono text-[#059669]">
+                      <span>Using custom cover: <strong>{customCoverFile.name}</strong> ({formatSize(customCoverFile.size)})</span>
+                      <button
+                        type="button"
+                        onClick={() => setCustomCoverFile(null)}
+                        className="text-stone-500 hover:text-rose-600 underline text-[11px]"
+                      >
+                        Reset to preset
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Live Progress Bar */}
