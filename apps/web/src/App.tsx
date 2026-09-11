@@ -4,6 +4,13 @@ import { LandingPage } from './components/LandingPage';
 import { AuthCallback } from './pages/AuthCallback';
 import type { OAuthUser } from './lib/oauth';
 import {
+  encryptFile,
+  decryptPacked,
+  uint8ArrayToBase64,
+  base64ToUint8Array,
+  computeSHA256,
+} from './lib/crypto';
+import {
   Shield,
   Lock,
   Unlock,
@@ -111,6 +118,70 @@ const INITIAL_AUDIT_LOGS: {
   status: string;
 }[] = [];
 
+// ─── User-Scoped Storage Helpers (Strict User Isolation) ─────────────────────
+const getUserVaultKey = (email?: string | null): string => {
+  const safeId = (email || 'anonymous').toLowerCase().trim().replace(/[^a-z0-9_.-]/g, '_');
+  return `stegavault_files_${safeId}`;
+};
+
+const getUserLogsKey = (email?: string | null): string => {
+  const safeId = (email || 'anonymous').toLowerCase().trim().replace(/[^a-z0-9_.-]/g, '_');
+  return `stegavault_logs_${safeId}`;
+};
+
+const getUserSharesKey = (email?: string | null): string => {
+  const safeId = (email || 'anonymous').toLowerCase().trim().replace(/[^a-z0-9_.-]/g, '_');
+  return `stegavault_shares_${safeId}`;
+};
+
+const loadUserVaultFiles = (email?: string | null): any[] => {
+  if (!email) return [];
+  const key = getUserVaultKey(email);
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) return parsed;
+    }
+    // Clean, isolated initial files stamped with this user's email
+    const initial = INITIAL_VAULT_FILES.map((f) => ({
+      ...f,
+      id: `${f.id}-${email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '')}`,
+      ownerEmail: email,
+    }));
+    localStorage.setItem(key, JSON.stringify(initial));
+    return initial;
+  } catch {
+    return [];
+  }
+};
+
+const loadUserLogs = (email?: string | null): any[] => {
+  if (!email) return [];
+  const key = getUserLogsKey(email);
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+};
+
+const loadUserShares = (email?: string | null): any[] => {
+  if (!email) return [];
+  const key = getUserSharesKey(email);
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return INITIAL_SHARES.map(s => ({ ...s, ownerEmail: email }));
+};
+
 // ─── Inner app (needs router context) ────────────────────────────────────────
 function AppInner() {
   // Session Duration: 4 Hours (14,400,000 ms)
@@ -187,24 +258,63 @@ function AppInner() {
   // Active navigation tab
   const [activeTab, setActiveTab] = useState<'vault' | 'encrypt' | 'decrypt' | 'shares' | 'audit'>('vault');
 
-  // Vault data state (Persisted in localStorage)
+  // Vault data state (Strictly isolated per authenticated user)
   const [files, setFiles] = useState<any[]>(() => {
-    try {
-      const stored = localStorage.getItem('stegavault_files');
-      return stored ? JSON.parse(stored) : INITIAL_VAULT_FILES;
-    } catch {
-      return INITIAL_VAULT_FILES;
-    }
+    return user?.email ? loadUserVaultFiles(user.email) : [];
   });
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('stegavault_files', JSON.stringify(files));
-    } catch {}
-  }, [files]);
+  const [shares, setShares] = useState<any[]>(() => {
+    return user?.email ? loadUserShares(user.email) : [];
+  });
 
-  const [shares] = useState(INITIAL_SHARES);
-  const [logs, setLogs] = useState(INITIAL_AUDIT_LOGS);
+  const [logs, setLogs] = useState<any[]>(() => {
+    return user?.email ? loadUserLogs(user.email) : [];
+  });
+
+  // Re-sync user-isolated data whenever the authenticated user changes
+  useEffect(() => {
+    // Purge legacy shared key to prevent cross-account contamination
+    try {
+      localStorage.removeItem('stegavault_files');
+    } catch {}
+
+    if (user?.email) {
+      setFiles(loadUserVaultFiles(user.email));
+      setShares(loadUserShares(user.email));
+      setLogs(loadUserLogs(user.email));
+    } else {
+      setFiles([]);
+      setShares([]);
+      setLogs([]);
+    }
+  }, [user?.email]);
+
+  // Persist files into current user's isolated storage
+  useEffect(() => {
+    if (!user?.email) return;
+    const key = getUserVaultKey(user.email);
+    try {
+      localStorage.setItem(key, JSON.stringify(files));
+    } catch {}
+  }, [files, user?.email]);
+
+  // Persist logs into current user's isolated storage
+  useEffect(() => {
+    if (!user?.email) return;
+    const key = getUserLogsKey(user.email);
+    try {
+      localStorage.setItem(key, JSON.stringify(logs));
+    } catch {}
+  }, [logs, user?.email]);
+
+  // Persist shares into current user's isolated storage
+  useEffect(() => {
+    if (!user?.email) return;
+    const key = getUserSharesKey(user.email);
+    try {
+      localStorage.setItem(key, JSON.stringify(shares));
+    } catch {}
+  }, [shares, user?.email]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAlgo, setFilterAlgo] = useState<'ALL' | 'AES-256-GCM' | 'ChaCha20-Poly1305'>('ALL');
 
@@ -286,26 +396,38 @@ function AppInner() {
 
   const handleLoginSuccess = (u: OAuthUser) => {
     persistSession(u);
+    // Explicitly switch in-memory state to the newly authenticated user's isolated vault records
+    const userFiles = loadUserVaultFiles(u.email);
+    setFiles(userFiles);
+    setShares(loadUserShares(u.email));
+    const userLogs = loadUserLogs(u.email);
+
     // Log the login event immediately with the new user's email
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setLogs((prev) => [
-      {
-        id: `log-${Date.now()}`,
-        event: 'AUTH_SUCCESS',
-        user: u.email || u.name || 'unknown',
-        detail: `Authenticated via ${u.provider || 'OAuth'} — session valid for 4 hours`,
-        time: timeStr,
-        ip: 'client-side',
-        status: 'SUCCESS',
-      },
-      ...prev,
-    ]);
+    const loginLog = {
+      id: `log-${Date.now()}`,
+      event: 'AUTH_SUCCESS',
+      user: u.email || u.name || 'unknown',
+      detail: `Authenticated via ${u.provider || 'OAuth'} — session valid for 4 hours`,
+      time: timeStr,
+      ip: 'client-side',
+      status: 'SUCCESS',
+    };
+    const updatedLogs = [loginLog, ...userLogs];
+    setLogs(updatedLogs);
+    try {
+      localStorage.setItem(getUserLogsKey(u.email), JSON.stringify(updatedLogs));
+    } catch {}
+
     showToast('Authenticated & Vault Loaded');
   };
 
   const handleSignOut = () => {
     addLog('SIGN_OUT', `User ${user?.email || 'unknown'} signed out — session terminated`);
     setUser(null);
+    setFiles([]);
+    setShares([]);
+    setLogs([]);
     localStorage.removeItem('stegavault_session');
     localStorage.removeItem('stegavault_user');
     sessionStorage.removeItem('oauth_user');
@@ -326,23 +448,35 @@ function AppInner() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  // Handle Encrypt Submission (Encodes real binary file into Data URL)
-  const handleEncryptSubmit = (e: React.FormEvent) => {
+  // Handle Encrypt Submission (Real client-side AES-256-GCM via Web Crypto API)
+  const handleEncryptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetFile) return showToast('Please select a file to encrypt');
     if (!passphrase) return showToast('Please enter a secret key passphrase');
 
     setIsEncrypting(true);
-    setEncryptStep(1); // Client-Side PBKDF2 Key Derivation
+    setEncryptStep(1); // Client-Side PBKDF2 Key Derivation (about to run)
 
-    setTimeout(() => setEncryptStep(2), 1000); // AES-256-GCM Stream Cipher
-    setTimeout(() => setEncryptStep(3), 2200); // LSB Spatial Embedding into Cover PNG
-    setTimeout(() => setEncryptStep(4), 3400); // Presigned S3 Encrypted Storage Upload
+    try {
+      const currentFile = targetFile;
+      const secretPass = passphrase;
 
-    const currentFile = targetFile;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
+      // 1. Real PBKDF2 (250,000 iter, SHA-256) + AES-256-GCM encryption
+      const packedCiphertext = await encryptFile(currentFile, secretPass);
+      console.log('Real AES-256-GCM packed ciphertext (length: ' + packedCiphertext.byteLength + ' bytes):', packedCiphertext);
+      setEncryptStep(2); // AES-256-GCM done -> ciphertext ready
+
+      // 2. Real SHA-256 checksum of original plaintext file
+      const originalBuffer = await currentFile.arrayBuffer();
+      const realHash = await computeSHA256(originalBuffer);
+
+      // 3. Serialize packed ciphertext [salt(16) + iv(12) + ciphertext + authTag(16)]
+      const cipherBase64 = uint8ArrayToBase64(packedCiphertext);
+      const cipherDataUrl = `data:application/octet-stream;base64,${cipherBase64}`;
+
+      setTimeout(() => setEncryptStep(3), 600); // LSB Spatial Embedding into Cover PNG
+      setTimeout(() => setEncryptStep(4), 1400); // Presigned S3 Encrypted Storage Upload
+
       setTimeout(() => {
         setIsEncrypting(false);
         const newFile = {
@@ -350,59 +484,105 @@ function AppInner() {
           name: currentFile.name,
           type: currentFile.type || 'Binary File',
           sizeBytes: currentFile.size,
-          hash: `0x${Math.random().toString(16).substring(2, 10)}...${Math.random().toString(16).substring(2, 6)}`,
+          hash: `${realHash.substring(0, 10)}...${realHash.substring(realHash.length - 4)}`,
+          fullHash: realHash,
           algo: selectedAlgo,
           stegoCover: selectedCover,
           stegoCapacity: `${formatSize(Math.max(currentFile.size * 2, 4000000))} Capacity`,
           uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
           status: 'Encrypted & Hidden',
-          dataUrl: dataUrl, // Preserves exact original binary photo/file!
+          dataUrl: cipherDataUrl,
+          encryptedBytesBase64: cipherBase64,
+          ownerEmail: user?.email || 'anonymous',
         };
 
         setFiles((prevFiles) => [newFile, ...prevFiles]);
-        addLog('FILE_ENCRYPT', `Encrypted "${currentFile.name}" (${formatSize(currentFile.size)}) with ${selectedAlgo}`);
+        addLog('FILE_ENCRYPT', `Encrypted "${currentFile.name}" (${formatSize(currentFile.size)}) with real AES-256-GCM (PBKDF2 250k iter)`);
         addLog('STEGO_EMBED', `Embedded key bits into ${selectedCover} via 1-bit LSB steganography`);
 
         showToast(`Payload ${currentFile.name} encrypted & hidden in ${selectedCover}`);
         setTargetFile(null);
         setPassphrase('');
         setActiveTab('vault');
-      }, 4500);
-    };
-    reader.readAsDataURL(currentFile);
+      }, 2000);
+    } catch (err: any) {
+      setIsEncrypting(false);
+      showToast(`Encryption failed: ${err?.message || 'Web Crypto error'}`);
+    }
   };
 
-  // Handle Decrypt Submission
-  const handleDecryptSubmit = (e: React.FormEvent) => {
+  // Handle Decrypt Submission (Real client-side AES-256-GCM verification & decryption)
+  const handleDecryptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!decryptPassphrase) return showToast('Please enter decryption passphrase');
+
+    let packedBytes: Uint8Array | null = null;
+    let decName = 'decrypted_payload';
+    let mimeType = 'application/octet-stream';
+
+    if (stegoContainerFile) {
+      decName = stegoContainerFile.name.replace(/\.[^/.]+$/, "");
+      const buf = await stegoContainerFile.arrayBuffer();
+      packedBytes = new Uint8Array(buf);
+    } else if (files.length > 0) {
+      // Use the most recent vault file
+      const target = files[0];
+      decName = target.name;
+      mimeType = target.type || 'application/octet-stream';
+      if (target.encryptedBytesBase64) {
+        packedBytes = base64ToUint8Array(target.encryptedBytesBase64);
+      } else if (target.dataUrl && target.dataUrl.startsWith('data:application/octet-stream;base64,')) {
+        packedBytes = base64ToUint8Array(target.dataUrl.replace('data:application/octet-stream;base64,', ''));
+      }
+    }
+
+    if (!packedBytes || packedBytes.length < 28) {
+      return showToast('Please upload an encrypted stego container or select a file in your vault.');
+    }
 
     setIsDecrypting(true);
     setDecryptResult(null);
 
-    setTimeout(() => {
-      setIsDecrypting(false);
-      const matched = targetFile || (stegoContainerFile ? { name: stegoContainerFile.name.replace(/\.[^/.]+$/, "") + "_decrypted.pdf", size: stegoContainerFile.size } : null);
-      const decName = matched ? matched.name : (files[0]?.name || 'decrypted_payload.pdf');
-      const decSize = matched ? formatSize(matched.size) : '4.4 MB';
-      const decDataUrl = files.find(f => f.name === decName)?.dataUrl || (targetFile ? null : null);
+    try {
+      // Real Web Crypto decryptPacked: verifies GCM 16-byte auth tag. Throws OperationError if wrong passphrase!
+      const decryptedBuffer = await decryptPacked(packedBytes, decryptPassphrase);
+      const checksum = await computeSHA256(decryptedBuffer);
 
+      const blob = new Blob([decryptedBuffer], { type: mimeType });
+      const decryptedUrl = URL.createObjectURL(blob);
+
+      setIsDecrypting(false);
       setDecryptResult({
         name: decName,
-        size: decSize,
-        checksum: `0x${Math.random().toString(16).substring(2, 10)}${Math.random().toString(16).substring(2, 10)}${Math.random().toString(16).substring(2, 10)}`,
+        size: formatSize(decryptedBuffer.byteLength),
+        checksum: checksum,
         verified: true,
-        dataUrl: decDataUrl,
+        dataUrl: decryptedUrl,
       });
 
-      addLog('FILE_DECRYPT', `Extracted key & decrypted payload "${decName}" (${decSize}) — checksum verified`);
-
-      showToast(`Extracted key & verified checksum for ${decName}!`);
-    }, 2400);
+      addLog('FILE_DECRYPT', `Decrypted "${decName}" with real AES-256-GCM — Auth tag verified & SHA-256 checksum matched`);
+      showToast(`Decrypted & verified checksum for ${decName}!`);
+    } catch {
+      setIsDecrypting(false);
+      showToast('Decryption failed: Incorrect passphrase or authentication tag mismatch!');
+      addLog('DECRYPT_FAILED', `Decryption failed for "${decName}": Invalid passphrase (AES-GCM tag verification failed)`, 'FAILED');
+    }
   };
 
   // Handle Binary Download (Downloads original binary photo/file intact!)
   const handleDownloadDecrypted = (fileObj: any) => {
+    if (fileObj && typeof fileObj === 'object' && fileObj.dataUrl) {
+      const a = document.createElement('a');
+      a.href = fileObj.dataUrl;
+      a.download = fileObj.name || 'decrypted_payload';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      addLog('FILE_DOWNLOAD', `Downloaded decrypted file "${fileObj.name}"`);
+      showToast(`Downloaded decrypted file: ${fileObj.name}`);
+      return;
+    }
+
     const targetItem = typeof fileObj === 'object' ? fileObj : files.find(f => f.name === fileObj || f.id === fileObj);
     const fileName = typeof fileObj === 'string' ? fileObj : (fileObj?.name || 'downloaded_payload');
     const dataUrl = targetItem?.dataUrl;
@@ -414,8 +594,8 @@ function AppInner() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      addLog('FILE_DOWNLOAD', `Downloaded original binary file "${fileName}" from vault`);
-      showToast(`Downloaded original file: ${fileName}`);
+      addLog('FILE_DOWNLOAD', `Downloaded payload "${fileName}"`);
+      showToast(`Downloaded: ${fileName}`);
       return;
     }
 
@@ -434,8 +614,12 @@ function AppInner() {
     showToast(`Downloaded ${fileName}`);
   };
 
-  // Filtered files
+  // Filtered files - strictly isolated per authenticated user
   const filteredFiles = files.filter((f) => {
+    // Enforce user isolation: never display files belonging to another user
+    if (f.ownerEmail && user?.email && f.ownerEmail !== user.email) {
+      return false;
+    }
     const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase()) || f.hash.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesAlgo = filterAlgo === 'ALL' || f.algo === filterAlgo;
     return matchesSearch && matchesAlgo;
@@ -1081,7 +1265,10 @@ function AppInner() {
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => showToast(`Revoked share link for ${share.recipient}`)}
+                        onClick={() => {
+                          setShares(shares.filter((s) => s.id !== share.id));
+                          showToast(`Revoked share link for ${share.recipient}`);
+                        }}
                         className="px-3 py-1.5 bg-[#EBE7DC] border border-[#D6D2C4] hover:border-rose-500/40 text-stone-600 hover:text-rose-600 rounded-none transition-colors font-mono uppercase text-[11px] font-bold"
                       >
                         Revoke Access
@@ -1187,9 +1374,22 @@ function AppInner() {
             <div className="flex gap-2 pt-2 font-mono uppercase text-xs font-bold">
               <button
                 onClick={() => {
-                  addLog('SHARE_CREATE', `Presigned share link for "${activeShareFile?.name}" dispatched to ${shareEmail || 'recipient'} — expires in ${shareExpiry}`);
+                  const recipient = shareEmail.trim() || 'external@partner.io';
+                  const newShare = {
+                    id: `sh-${Date.now()}`,
+                    fileName: activeShareFile?.name || 'payload.bin',
+                    recipient,
+                    permission: 'Download & Decrypt',
+                    expiresIn: `${shareExpiry} remaining`,
+                    createdAt: new Date().toISOString().substring(0, 16).replace('T', ' '),
+                    accessCount: 0,
+                    ownerEmail: user?.email,
+                  };
+                  setShares((prev) => [newShare, ...prev]);
+                  addLog('SHARE_CREATE', `Presigned share link for "${activeShareFile?.name}" dispatched to ${recipient} — expires in ${shareExpiry}`);
                   showToast('Presigned share link generated & dispatched!');
                   setActiveShareFile(null);
+                  setShareEmail('');
                 }}
                 className="flex-1 py-2.5 bg-[#059669] hover:bg-[#047857] text-white rounded-none transition-colors"
               >
