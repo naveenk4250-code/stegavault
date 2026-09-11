@@ -29,18 +29,6 @@ export class AuthController {
     res.redirect(buildRedirect(req.user));
   }
 
-  // ─── Discord ──────────────────────────────────────────────────────────────
-  @Get('discord')
-  @UseGuards(AuthGuard('discord'))
-  discordLogin() {
-    // Passport redirects to Discord automatically
-  }
-
-  @Get('discord/callback')
-  @UseGuards(AuthGuard('discord'))
-  discordCallback(@Req() req: any, @Res() res: Response) {
-    res.redirect(buildRedirect(req.user));
-  }
 
   // ─── LinkedIn ─────────────────────────────────────────────────────────────
   @Get('linkedin')
