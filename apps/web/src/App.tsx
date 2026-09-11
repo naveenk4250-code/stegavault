@@ -527,20 +527,30 @@ function AppInner() {
   };
 
   // Handle Decrypt Submission (Real 1-Bit LSB Extraction + AES-256-GCM Decryption)
+  // Handle Decrypt Submission (Real 1-Bit LSB Extraction + AES-256-GCM Decryption)
   const handleDecryptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!decryptPassphrase) return showToast('Please enter decryption passphrase');
 
     let packedBytes: Uint8Array | null = null;
-    let decName = 'decrypted_payload';
-    let mimeType = 'application/octet-stream';
+    let decName = 'decrypted_payload.txt';
+    let mimeType = 'text/plain';
 
     setIsDecrypting(true);
     setDecryptResult(null);
 
     try {
       if (stegoContainerFile) {
-        decName = stegoContainerFile.name.replace(/\.[^/.]+$/, "");
+        const rawName = stegoContainerFile.name.replace(/\.[^/.]+$/, "");
+        const cleanName = rawName.replace(/_stego$/, "");
+        const matched = files.find(f => f.name === cleanName || f.name.replace(/\.[^/.]+$/, "") === cleanName);
+        if (matched) {
+          decName = matched.name;
+          mimeType = matched.type || 'text/plain';
+        } else {
+          decName = cleanName.includes('.') ? cleanName : `${cleanName}.txt`;
+        }
+
         console.log('Extracting payload from uploaded stego container:', stegoContainerFile.name);
         try {
           // 1. Real 1-Bit LSB extraction from image pixels
@@ -555,7 +565,7 @@ function AppInner() {
         // Use the most recent vault file
         const target = files[0];
         decName = target.name;
-        mimeType = target.type || 'application/octet-stream';
+        mimeType = target.type || 'text/plain';
 
         if (target.stegoDataUrl || (target.dataUrl && target.dataUrl.startsWith('data:image/png'))) {
           // Extract from the stego PNG data URL
@@ -600,15 +610,16 @@ function AppInner() {
 
   // Handle Binary Download (Downloads original binary photo/file or stego container intact!)
   const handleDownloadDecrypted = (fileObj: any) => {
-    if (fileObj && typeof fileObj === 'object' && fileObj.dataUrl) {
+    // 1. If decryptResult object was passed or active
+    if (fileObj && typeof fileObj === 'object' && fileObj.dataUrl && !fileObj.stegoCover) {
       const a = document.createElement('a');
       a.href = fileObj.dataUrl;
-      a.download = fileObj.name || 'decrypted_payload';
+      a.download = fileObj.name || 'decrypted_payload.txt';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       addLog('FILE_DOWNLOAD', `Downloaded decrypted file "${fileObj.name}"`);
-      showToast(`Downloaded decrypted file: ${fileObj.name}`);
+      showToast(`Downloaded decrypted payload: ${fileObj.name}`);
       return;
     }
 
@@ -618,7 +629,8 @@ function AppInner() {
 
     if (dataUrl) {
       const isStegoPng = dataUrl.startsWith('data:image/png');
-      const downloadName = isStegoPng ? `${fileName.replace(/\.[^/.]+$/, '')}_stego.png` : fileName;
+      const baseName = fileName.replace(/\.[^/.]+$/, '');
+      const downloadName = isStegoPng ? (fileName.endsWith('.png') ? fileName : `${baseName}_stego.png`) : fileName;
       const a = document.createElement('a');
       a.href = dataUrl;
       a.download = downloadName;
@@ -630,7 +642,20 @@ function AppInner() {
       return;
     }
 
-    // Fallback for mock items without binary dataUrl
+    // 2. Fallback to active decryptResult if present
+    if (decryptResult && decryptResult.dataUrl) {
+      const a = document.createElement('a');
+      a.href = decryptResult.dataUrl;
+      a.download = decryptResult.name || 'decrypted_payload.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      addLog('FILE_DOWNLOAD', `Downloaded decrypted file "${decryptResult.name}"`);
+      showToast(`Downloaded decrypted payload: ${decryptResult.name}`);
+      return;
+    }
+
+    // 3. Fallback for mock items without binary dataUrl
     const content = `SecureCloud Vault Demo Payload: ${fileName}\nExtracted: ${new Date().toISOString()}\nAES-256-GCM + LSB Steganography.`;
     const blob = new Blob([content], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
@@ -971,9 +996,9 @@ function AppInner() {
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button
-                              onClick={() => handleDownloadDecrypted(file.name)}
+                              onClick={() => handleDownloadDecrypted(file)}
                               className="p-2 rounded-none bg-[#EBE7DC] border border-[#D6D2C4] hover:border-[#059669]/50 text-stone-700 hover:text-[#059669] transition-colors"
-                              title="Download Decrypted Payload"
+                              title="Download Stego Container PNG"
                             >
                               <Download className="w-4 h-4" />
                             </button>
@@ -1297,7 +1322,7 @@ function AppInner() {
                     <div className="break-all"><strong className="text-stone-500">SHA-256 Checksum:</strong> {decryptResult.checksum}</div>
                   </div>
                   <button
-                    onClick={() => handleDownloadDecrypted(decryptResult.name)}
+                    onClick={() => handleDownloadDecrypted(decryptResult)}
                     className="w-full py-2.5 rounded-none bg-[#059669] text-white font-mono uppercase font-bold tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-[#047857] transition-colors"
                   >
                     <Download className="w-4 h-4" />
