@@ -11,114 +11,81 @@
 
 ## 🚀 What is StegaVault?
 
-StegaVault is a **production-ready, enterprise-grade web application** that combines two powerful security techniques:
+StegaVault is a full-stack security-focused application demonstrating zero-knowledge client-side encryption and steganography, backed by a production-shaped NestJS architecture ready for scalable cloud storage. It combines two core security layers:
 
-- **Cryptography** — Encrypts your secret files using military-grade AES-256-GCM or ChaCha20-Poly1305 ciphers.
-- **Steganography** — Hides the encrypted data inside innocent-looking PNG images using 1-bit LSB (Least Significant Bit) pixel manipulation.
+- **Cryptography** — Encrypts your secret files in-browser using authenticated AES-256-GCM via the Web Crypto API (`crypto.subtle`) with keys derived via PBKDF2 (250,000 iterations, SHA-256).
+- **Steganography** — Embeds the ciphertext into innocent-looking PNG images using real 1-bit spatial LSB (Least Significant Bit) pixel manipulation via the Canvas API.
 
-The result? A file that looks like a normal image but secretly carries encrypted, hidden data — invisible to the naked eye.
+The result? An image that looks visually indistinguishable from the original cover photo, but secretly carries encrypted binary data — tamper-evident and impossible to extract without the master passphrase.
+
+---
+
+## 🎯 Current Scope vs. Architecture Roadmap
+
+| Component | Status | Implementation Details |
+|-----------|--------|------------------------|
+| **Client-Side AES-256-GCM** | ✅ **Fully Implemented** | Native Web Crypto API, per-file 16-byte random salt, 12-byte random IV, 16-byte GCM authentication tag. |
+| **1-Bit LSB Pixel Embedding** | ✅ **Fully Implemented** | HTML5 Canvas API, 3-channel (RGB) spatial LSB encoding, 32-bit length header, lossless PNG output. |
+| **Passphrase Key Derivation** | ✅ **Fully Implemented** | PBKDF2 with 250,000 iterations, SHA-256 hash, per-session random salt. |
+| **Integrity & Checksum Verification** | ✅ **Fully Implemented** | SHA-256 cryptographic digests computed on raw plaintext and verified upon decryption. |
+| **Local Vault & Audit Trail** | ✅ **Fully Implemented** | User-isolated client vault state, detailed event logging with cryptographic status tags. |
+| **Multi-Device Cloud Persistence** | 🚧 **Architecture Scaffolded** | NestJS backend with Prisma ORM schema ready (`apps/api/prisma/schema.prisma`), designed for AWS S3 / Supabase storage. |
 
 ---
 
 ## ✨ Features
 
-| Feature | Description |
-|---------|-------------|
-| 🔒 **AES-256-GCM Encryption** | Hardware-accelerated, authenticated encryption via WebCrypto API |
-| 🌊 **ChaCha20-Poly1305** | Mobile-optimized stream cipher for high-performance encryption |
-| 🖼️ **1-Bit LSB Steganography** | Hides encrypted key bits in the least significant pixels of PNG cover images — imperceptible to human vision |
-| 🧠 **Zero-Knowledge Pipeline** | All encryption/decryption happens entirely in your browser — no data ever leaves your device unencrypted |
-| 🔑 **PBKDF2 Key Derivation** | 256-bit key derived from your passphrase using PBKDF2 with a 16-byte random salt |
-| 📂 **Enterprise Vault** | Browse, filter, and manage all encrypted payloads with hash verification |
-| 📤 **Secure File Sharing** | Generate time-limited presigned share links for encrypted payloads |
-| 📋 **Audit Logs** | Full tamper-evident log of every encryption, decryption, and access event |
-| 🌙 **Dark Mode UI** | Premium enterprise-grade dark theme with glassmorphism and micro-animations |
-
----
-
-## 🛠️ Tech Stack
-
-### Frontend (`apps/web`)
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| **React** | 19 | UI component framework |
-| **Vite** | 8 | Lightning-fast build tool & dev server |
-| **TypeScript** | 6 | Type-safe JavaScript |
-| **Tailwind CSS** | v4 | Utility-first styling |
-| **Lucide React** | latest | Icon library |
-| **Zustand** | 5 | Lightweight state management |
-| **React Router DOM** | 7 | Client-side routing |
-| **React Hook Form** | 7 | Form handling & validation |
-| **Zod** | 4 | Schema validation |
-
-### Backend (`apps/api`)
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| **NestJS** | latest | Scalable Node.js server framework |
-| **Prisma ORM** | 7 | Type-safe database ORM |
-| **PostgreSQL** | 15 | Production relational database |
-| **Docker Compose** | — | Containerized local development |
+| Feature | Status | Description |
+|---------|--------|-------------|
+| 🔒 **AES-256-GCM Encryption** | **Implemented** | Hardware-accelerated, authenticated encryption via browser WebCrypto API |
+| 🖼️ **1-Bit LSB Steganography** | **Implemented** | Embeds ciphertext bits into least significant pixel bits of PNG cover images |
+| 🔑 **PBKDF2 Key Derivation** | **Implemented** | 256-bit key derived from user passphrase (250,000 iterations, SHA-256) |
+| 🧠 **Zero-Knowledge Pipeline** | **Implemented** | All cryptographic operations execute entirely in the browser; keys never leave client memory |
+| 📂 **Isolated Vault Storage** | **Implemented** | Per-user encrypted vault payload index with live SHA-256 hash tracking |
+| 📋 **Security Audit Trail** | **Implemented** | Full event log capturing encryption, embedding, decryption, and access failures |
+| 🌐 **Multi-Device S3 Storage** | **Next Milestone** | Schema and NestJS backend scaffolded for S3 presigned encrypted container sync |
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     BROWSER (Client)                    │
-│                                                         │
-│  ┌──────────────┐    ┌──────────────┐                  │
-│  │  File Input  │───▶│  PBKDF2 Key  │                  │
-│  └──────────────┘    │  Derivation  │                  │
-│                       └──────┬───────┘                  │
-│                              │                          │
-│                    ┌─────────▼────────┐                 │
-│                    │  AES-256-GCM /   │                 │
-│                    │  ChaCha20 Cipher │                 │
-│                    └─────────┬────────┘                 │
-│                              │                          │
-│                    ┌─────────▼────────┐                 │
-│                    │  1-bit LSB PNG   │                 │
-│                    │  Steganography   │                 │
-│                    └─────────┬────────┘                 │
-│                              │                          │
-│                    ┌─────────▼────────┐                 │
-│                    │  Encrypted Blob  │                 │
-│                    │  (Safe to share) │                 │
-│                    └──────────────────┘                 │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
-## 📂 Project Structure
-
-```
-PHASE2_PROJECT/
-├── apps/
-│   ├── web/                    # React + Vite Frontend
-│   │   ├── src/
-│   │   │   ├── App.tsx         # Main authenticated workspace
-│   │   │   ├── components/
-│   │   │   │   └── LandingPage.tsx  # Interactive landing & auth
-│   │   │   ├── index.css       # Global styles (Tailwind v4)
-│   │   │   └── main.tsx        # React entry point
-│   │   ├── vercel.json         # Vercel deployment config
-│   │   ├── vite.config.ts      # Vite configuration
-│   │   └── package.json
-│   │
-│   └── api/                    # NestJS Backend
-│       ├── src/
-│       │   ├── app.module.ts
-│       │   ├── app.controller.ts
-│       │   └── main.ts
-│       ├── prisma/
-│       │   └── schema.prisma   # Database schema
-│       └── package.json
-│
-├── docker-compose.yml          # PostgreSQL + API local dev
-├── vercel.json                 # Root Vercel config
-└── package.json                # Monorepo workspace config
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           CLIENT / BROWSER                              │
+│                                                                         │
+│  ┌──────────────┐     ┌────────────────┐     ┌───────────────────────┐  │
+│  │ Target File  │────▶│ PBKDF2 (250k)  │────▶│ AES-256-GCM Cipher    │  │
+│  └──────────────┘     │ Key Derivation │     │ [Salt][IV][Ciphertext]│  │
+│                       └────────────────┘     └───────────┬───────────┘  │
+│                                                          │              │
+│                       ┌────────────────┐                 ▼              │
+│                       │ Cover PNG      │────▶┌───────────────────────┐  │
+│                       │ (RGB Channels) │     │ 1-Bit LSB Embedding   │  │
+│                       └────────────────┘     │ (Canvas API)          │  │
+│                                              └───────────┬───────────┘  │
+│                                                          │              │
+│                                                          ▼              │
+│                                              ┌───────────────────────┐  │
+│                                              │ Stego PNG Container   │  │
+│                                              │ (Indistinguishable)   │  │
+│                                              └───────────────────────┘  │
+└───────────────────────────────────┬─────────────────────────────────────┘
+                                    │ (Roadmap: Next Milestone)
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    PERSISTENCE & STORAGE BACKEND                        │
+│                                                                         │
+│   ┌────────────────────┐    ┌──────────────────┐   ┌────────────────┐   │
+│   │ NestJS Backend API │───▶│ Prisma ORM       │──▶│ PostgreSQL     │   │
+│   │ (OAuth & Auth)     │    │ (File Metadata)  │   │ (Supabase)     │   │
+│   └─────────┬──────────┘    └──────────────────┘   └────────────────┘   │
+│             │                                                           │
+│             ▼                                                           │
+│   ┌────────────────────┐                                                │
+│   │ AWS S3 / Supabase  │                                                │
+│   │ (Stego Containers) │                                                │
+│   └────────────────────┘                                                │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -126,9 +93,8 @@ PHASE2_PROJECT/
 ## ⚡ Quick Start (Local Development)
 
 ### Prerequisites
-- **Node.js** v18+ (v25 recommended)
+- **Node.js** v18+ (v20+ recommended)
 - **npm** v9+
-- **Docker Desktop** (for the PostgreSQL database)
 
 ### 1. Clone the repository
 
@@ -143,45 +109,21 @@ cd stegavault
 npm install
 ```
 
-### 3. Start the database
+### 3. Start the frontend
 
 ```bash
-docker-compose up -d
+npm run dev --workspace=apps/web
 ```
-
-### 4. Run database migrations
-
-```bash
-npm run db:migrate
-```
-
-### 5. Start the development servers
-
-```bash
-# Start both frontend and backend together
-npm run dev
-
-# Or start individually:
-npm run web:dev    # Frontend only → http://localhost:5173
-npm run api:dev    # Backend only  → http://localhost:3000
-```
-
-### 6. Open in browser
-
-```
-http://localhost:5173
-```
+Open **http://localhost:5173** in your browser.
 
 ---
 
-## 🔐 Demo Credentials
+## 🔐 Testing the Application
 
-Use these to log into the live demo:
-
-| Field | Value |
-|-------|-------|
-| **Email** | `alex.mercer@enterprise.io` |
-| **Master Key Passphrase** | `StegaVault@Enterprise2026` |
+1. **Log in**: Sign in using Google OAuth, Discord OAuth, or any test email via the login modal.
+2. **Encrypt & Embed**: Go to the **Encrypt & Embed** tab, choose any secret file (e.g. text, PDF, image), enter a passphrase, and execute encryption.
+3. **Download Stego Container**: From the Vault tab, download the generated Stego PNG file. The file looks like a normal image but contains your encrypted payload in its pixels.
+4. **Extract & Decrypt**: Go to the **Extract & Decrypt** tab, select the stego container, enter your passphrase, and verify that the exact original file is restored. Try an incorrect passphrase to confirm that AES-GCM tag verification rejects it!
 
 ---
 
