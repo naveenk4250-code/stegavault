@@ -30,6 +30,8 @@ The result? An image that looks visually indistinguishable from the original cov
 | **Integrity & Checksum Verification** | ✅ **Fully Implemented** | SHA-256 cryptographic digests computed on raw plaintext and verified upon decryption. |
 | **Local Vault & Audit Trail** | ✅ **Fully Implemented** | User-isolated client vault state, detailed event logging with cryptographic status tags. |
 | **Multi-Device Cloud Persistence** | 🚧 **Architecture Scaffolded** | NestJS backend with Prisma ORM schema ready (`apps/api/prisma/schema.prisma`), designed for AWS S3 / Supabase storage. |
+| **Authentication Architecture** | 🔄 **Evolved / Superseded** | Graphical password authentication (used in the SecureCloud predecessor) was superseded by industry-standard OAuth 2.0 (Google, Discord) and client-side session management for stronger enterprise security. The schema field (`graphical_password_hash`) is preserved for potential future multi-factor evaluation. |
+
 
 ---
 
