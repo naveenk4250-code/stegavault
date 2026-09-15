@@ -1017,7 +1017,7 @@ function AppInner() {
                               onClick={() => {
                                 setActiveShareFile(file);
                                 setShareEmail('');
-                                addLog('SHARE_INIT', `Initiated presigned share link creation for "${file.name}"`);
+                                addLog('SHARE_INIT', `Prototype share link created locally for "${file.name}" (not yet sent — backend delivery not implemented)`);
                               }}
                               className="p-2 rounded-none bg-[#EBE7DC] border border-[#D6D2C4] hover:border-cyan-600/50 text-stone-700 hover:text-cyan-600 transition-colors"
                               title="Share Link"
@@ -1338,11 +1338,18 @@ function AppInner() {
         {activeTab === 'shares' && (
           <div className="space-y-6 tab-content-enter">
             <div className="bg-white rounded-none overflow-hidden border border-[#D6D2C4]">
-              <div className="px-6 py-4 border-b border-[#D6D2C4] bg-[#F7F5F0] flex items-center justify-between">
+              <div className="px-6 py-4 border-b border-[#D6D2C4] bg-[#F7F5F0] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Share2 className="w-4 h-4 text-cyan-600" />
-                  <h2 className="font-mono font-bold text-xs uppercase tracking-wider text-stone-900">Active Presigned Share Links</h2>
+                  <h2 className="font-mono font-bold text-xs uppercase tracking-wider text-stone-900">Active Share Links (Local Prototype)</h2>
                 </div>
+                <span className="text-[10px] font-mono bg-amber-500/10 text-amber-800 border border-amber-500/20 px-2 py-0.5 uppercase font-semibold">
+                  Prototype: Local Storage Only · Not Sent to Recipients
+                </span>
+              </div>
+
+              <div className="bg-amber-50/70 border-b border-[#D6D2C4] px-6 py-2.5 text-stone-600 text-[11px] font-mono">
+                ℹ️ <strong>Prototype Mode:</strong> Share links are saved locally in your browser for preview and demonstration. Outbound email delivery and backend-presigned S3 endpoints are part of the upcoming storage milestone.
               </div>
 
               <div className="divide-y divide-[#D6D2C4]">
@@ -1435,8 +1442,13 @@ function AppInner() {
       {activeShareFile && (
         <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#F0EDE4] max-w-md w-full p-6 rounded-none space-y-4 border border-stone-900 shadow-2xl">
-            <h3 className="font-mono uppercase font-bold text-stone-900 text-sm">Create Presigned Share Link</h3>
-            <p className="text-xs text-stone-600 font-mono uppercase">Payload: {activeShareFile.name}</p>
+            <div>
+              <h3 className="font-mono uppercase font-bold text-stone-900 text-sm">Create Share Link (Prototype)</h3>
+              <p className="text-xs text-stone-600 font-mono uppercase mt-1">Payload: {activeShareFile.name}</p>
+              <p className="text-[11px] text-stone-500 font-mono mt-1">
+                Generates a local share record in your browser. Outbound email dispatch and backend token verification are scheduled for the cloud storage milestone.
+              </p>
+            </div>
 
             <div className="space-y-3">
               <div>
@@ -1479,14 +1491,14 @@ function AppInner() {
                     ownerEmail: user?.email,
                   };
                   setShares((prev) => [newShare, ...prev]);
-                  addLog('SHARE_CREATE', `Presigned share link for "${activeShareFile?.name}" dispatched to ${recipient} — expires in ${shareExpiry}`);
-                  showToast('Presigned share link generated & dispatched!');
+                  addLog('SHARE_CREATE', `Prototype share link for "${activeShareFile?.name}" saved locally for ${recipient} — no email or network request is sent yet`);
+                  showToast('Share link created locally (Prototype — not sent)');
                   setActiveShareFile(null);
                   setShareEmail('');
                 }}
                 className="flex-1 py-2.5 bg-[#059669] hover:bg-[#047857] text-white rounded-none transition-colors"
               >
-                Generate & Send Link
+                Create Share Record (Local)
               </button>
               <button
                 onClick={() => setActiveShareFile(null)}
@@ -1506,7 +1518,7 @@ function AppInner() {
             <Shield className="w-4 h-4 text-[#059669]" />
             <span>SecureCloud Enterprise v2.4 · Zero-Knowledge Cryptographic Storage Engine</span>
           </div>
-          <div>AES-256-GCM · LSB Steganography · Presigned Cloud Sync</div>
+          <div>AES-256-GCM · LSB Steganography · Zero-Knowledge Vault</div>
         </div>
       </footer>
     </div>
