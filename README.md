@@ -141,7 +141,13 @@ The frontend is deployed and hosted at:
 
 Every push to the `main` branch automatically triggers a new Vercel deployment.
 
-### Backend — Docker Compose
+### Backend — Render (Live)
+The NestJS backend API is deployed and hosted at:
+**[https://stegavault-v4p0.onrender.com](https://stegavault-v4p0.onrender.com)**
+
+Every push to the `main` branch automatically triggers a new deployment on Render.
+
+### Backend — Local Docker Compose
 Run the NestJS API and PostgreSQL database locally or on any cloud VM:
 
 ```bash
