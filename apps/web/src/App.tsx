@@ -944,7 +944,7 @@ function AppInner() {
                   <FolderLock className="w-4 h-4 text-[#059669]" />
                   <h2 className="font-mono font-bold text-xs uppercase tracking-wider text-stone-900">Encrypted Enterprise Vault Payload Index</h2>
                 </div>
-                <span className="text-xs font-mono text-stone-500 uppercase">Direct S3 Engine: <strong className="text-[#059669]">ACTIVE</strong></span>
+                <span className="text-xs font-mono text-stone-500 uppercase">Local Browser Storage: <strong className="text-[#059669]">Active</strong></span>
               </div>
 
               <div className="overflow-x-auto">
