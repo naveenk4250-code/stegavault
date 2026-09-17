@@ -919,13 +919,6 @@ function AppInner() {
                   <span>Load Demo Data</span>
                 </button>
 
-                <button
-                  onClick={() => showToast('Verified 100% GCM Authentication Tags')}
-                  className="flex items-center gap-2 bg-[#EBE7DC] border border-[#D6D2C4] hover:border-stone-400 px-4 py-2.5 rounded-none text-xs font-mono uppercase tracking-wider font-semibold text-stone-700 transition-colors"
-                >
-                  <RefreshCw className="w-3.5 h-3.5 text-[#059669]" />
-                  <span>Verify Hashes</span>
-                </button>
 
                 <button
                   onClick={() => setActiveTab('encrypt')}
