@@ -150,14 +150,8 @@ const loadUserVaultFiles = (email?: string | null): any[] => {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed)) return parsed;
     }
-    // Clean, isolated initial files stamped with this user's email
-    const initial = INITIAL_VAULT_FILES.map((f) => ({
-      ...f,
-      id: `${f.id}-${email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '')}`,
-      ownerEmail: email,
-    }));
-    localStorage.setItem(key, JSON.stringify(initial));
-    return initial;
+    // New user starts with a clean, empty vault
+    return [];
   } catch {
     return [];
   }
@@ -186,7 +180,7 @@ const loadUserShares = (email?: string | null): any[] => {
       if (Array.isArray(parsed)) return parsed;
     }
   } catch {}
-  return INITIAL_SHARES.map(s => ({ ...s, ownerEmail: email }));
+  return [];
 };
 
 // ─── Inner app (needs router context) ────────────────────────────────────────
@@ -655,19 +649,9 @@ function AppInner() {
       return;
     }
 
-    // 3. Fallback for mock items without binary dataUrl
-    const content = `SecureCloud Vault Demo Payload: ${fileName}\nExtracted: ${new Date().toISOString()}\nAES-256-GCM + LSB Steganography.`;
-    const blob = new Blob([content], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    addLog('FILE_DOWNLOAD', `Downloaded vault payload "${fileName}"`);
-    showToast(`Downloaded ${fileName}`);
+    // 3. Gracefully handle sample items without stored binary payload
+    showToast('Demo file record has no local stego image. Please encrypt a real file.');
+    addLog('FILE_DOWNLOAD_SKIPPED', `No binary stego container available for demo record "${fileName}"`, 'INFO');
   };
 
   // Filtered files - strictly isolated per authenticated user
@@ -682,6 +666,23 @@ function AppInner() {
   });
 
   const totalUsedBytes = files.reduce((acc, f) => acc + f.sizeBytes, 0);
+
+  const loadDemoData = () => {
+    if (!user?.email) return;
+    const demoFiles = INITIAL_VAULT_FILES.map((f) => ({
+      ...f,
+      id: `${f.id}-${user.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '')}`,
+      ownerEmail: user.email,
+    }));
+    const demoShares = INITIAL_SHARES.map((s) => ({
+      ...s,
+      ownerEmail: user.email,
+    }));
+    setFiles(demoFiles);
+    setShares(demoShares);
+    addLog('SYSTEM_DEMO', 'Loaded sample demo records into vault and shares for preview', 'SUCCESS');
+    showToast('Loaded sample demo records');
+  };
 
   // --- 1. UNAUTHENTICATED: INTERACTIVE PRODUCT LANDING & SHOWCASE ---
   if (!user) {
@@ -910,6 +911,15 @@ function AppInner() {
 
               <div className="flex items-center gap-3">
                 <button
+                  onClick={loadDemoData}
+                  className="flex items-center gap-2 bg-[#EBE7DC] border border-[#D6D2C4] hover:border-stone-400 px-3.5 py-2.5 rounded-none text-xs font-mono uppercase tracking-wider font-semibold text-stone-700 transition-colors"
+                  title="Populate sample demo files and shares"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-stone-500" />
+                  <span>Load Demo Data</span>
+                </button>
+
+                <button
                   onClick={() => showToast('Verified 100% GCM Authentication Tags')}
                   className="flex items-center gap-2 bg-[#EBE7DC] border border-[#D6D2C4] hover:border-stone-400 px-4 py-2.5 rounded-none text-xs font-mono uppercase tracking-wider font-semibold text-stone-700 transition-colors"
                 >
@@ -1044,8 +1054,26 @@ function AppInner() {
               </div>
 
               {filteredFiles.length === 0 && (
-                <div className="p-12 text-center text-stone-500 font-mono text-xs uppercase">
-                  No encrypted items found matching query.
+                <div className="p-12 text-center text-stone-500 font-mono text-xs uppercase space-y-3">
+                  <p>{files.length === 0 ? 'Your vault is currently empty.' : 'No encrypted items found matching query.'}</p>
+                  {files.length === 0 && (
+                    <div className="flex items-center justify-center gap-3 pt-2">
+                      <button
+                        onClick={() => setActiveTab('encrypt')}
+                        className="inline-flex items-center gap-2 bg-[#059669] hover:bg-[#047857] text-white font-mono uppercase text-xs font-bold tracking-widest px-4 py-2 transition-colors"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Encrypt & Embed File</span>
+                      </button>
+                      <button
+                        onClick={loadDemoData}
+                        className="inline-flex items-center gap-2 bg-[#EBE7DC] border border-[#D6D2C4] hover:border-stone-400 text-stone-700 font-mono uppercase text-xs font-bold tracking-widest px-4 py-2 transition-colors"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-stone-600" />
+                        <span>Load Sample Records</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1353,29 +1381,36 @@ function AppInner() {
               </div>
 
               <div className="divide-y divide-[#D6D2C4]">
-                {shares.map((share) => (
-                  <div key={share.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs hover:bg-[#EBE7DC]/40 transition-colors">
-                    <div className="space-y-1 font-mono">
-                      <div className="font-bold text-stone-900 text-sm uppercase">{share.fileName}</div>
-                      <div className="text-stone-600">
-                        Recipient: <span className="text-cyan-700 font-semibold">{share.recipient}</span> · Permission: <span className="text-[#059669] font-semibold">{share.permission}</span>
-                      </div>
-                      <div className="text-[11px] text-stone-500">Expires in {share.expiresIn} · Access Count: {share.accessCount} times</div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setShares(shares.filter((s) => s.id !== share.id));
-                          showToast(`Revoked share link for ${share.recipient}`);
-                        }}
-                        className="px-3 py-1.5 bg-[#EBE7DC] border border-[#D6D2C4] hover:border-rose-500/40 text-stone-600 hover:text-rose-600 rounded-none transition-colors font-mono uppercase text-[11px] font-bold"
-                      >
-                        Revoke Access
-                      </button>
-                    </div>
+                {shares.length === 0 ? (
+                  <div className="p-12 text-center text-stone-500 font-mono text-xs uppercase space-y-2">
+                    <p>No active share records found.</p>
+                    <p className="text-[11px] text-stone-400 normal-case">Create share records directly from your Vault tab to test local link generation.</p>
                   </div>
-                ))}
+                ) : (
+                  shares.map((share) => (
+                    <div key={share.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs hover:bg-[#EBE7DC]/40 transition-colors">
+                      <div className="space-y-1 font-mono">
+                        <div className="font-bold text-stone-900 text-sm uppercase">{share.fileName}</div>
+                        <div className="text-stone-600">
+                          Recipient: <span className="text-cyan-700 font-semibold">{share.recipient}</span> · Permission: <span className="text-[#059669] font-semibold">{share.permission}</span>
+                        </div>
+                        <div className="text-[11px] text-stone-500">Expires in {share.expiresIn} · Access Count: {share.accessCount} times</div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setShares(shares.filter((s) => s.id !== share.id));
+                            showToast(`Revoked share link for ${share.recipient}`);
+                          }}
+                          className="px-3 py-1.5 bg-[#EBE7DC] border border-[#D6D2C4] hover:border-rose-500/40 text-stone-600 hover:text-rose-600 rounded-none transition-colors font-mono uppercase text-[11px] font-bold"
+                        >
+                          Revoke Access
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
