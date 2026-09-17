@@ -831,7 +831,7 @@ function AppInner() {
             <div>
               <span className="text-xs text-stone-500 font-mono uppercase block">Encrypted Storage</span>
               <span className="text-lg font-mono font-extrabold text-stone-900">{formatSize(totalUsedBytes)}</span>
-              <span className="text-[10px] text-stone-500 block font-mono">100 GB Enterprise Quota</span>
+              <span className="text-[10px] text-stone-500 block font-mono">5 GB Vault Quota ({((totalUsedBytes / (5 * 1024 * 1024 * 1024)) * 100).toFixed(1)}% used)</span>
             </div>
           </div>
 
@@ -1083,7 +1083,7 @@ function AppInner() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-stone-900 font-mono uppercase tracking-tight">Zero-Knowledge Encryptor & Stego Embedder</h2>
-                  <p className="text-xs font-mono text-stone-500 uppercase">Client-Side WebWorker Crypto Pipeline</p>
+                  <p className="text-xs font-mono text-stone-500 uppercase">Client-Side Crypto Pipeline</p>
                 </div>
               </div>
 
