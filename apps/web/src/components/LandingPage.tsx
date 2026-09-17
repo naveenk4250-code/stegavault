@@ -23,7 +23,6 @@ interface LandingPageProps {
 
 export function LandingPage({ onLoginSuccess }: LandingPageProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
   // Interactive Stego Visualizer State
   const [stegoBitIndex, setStegoBitIndex] = useState(0);
@@ -134,8 +133,8 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
 
   const currentBitInfo = sampleBits[stegoBitIndex % sampleBits.length];
 
-  const openLogin = () => { setAuthMode('login'); setShowAuthModal(true); };
-  const openSignup = () => { setAuthMode('signup'); setShowAuthModal(true); };
+  const openLogin = () => { setShowAuthModal(true); };
+  const openSignup = () => { setShowAuthModal(true); };
 
   const handleHeroSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -681,17 +680,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
       {/* AUTH MODAL */}
       {showAuthModal && (
         <AuthModal
-          initialMode={authMode}
           onClose={() => setShowAuthModal(false)}
-          onEmailLogin={(email, _password, fullName) => {
-            setShowAuthModal(false);
-            onLoginSuccess({
-              email,
-              name: fullName || email.split('@')[0].replace(/[._]/g, ' '),
-              avatar: null,
-              provider: 'email',
-            });
-          }}
           onOAuthSuccess={(user) => {
             setShowAuthModal(false);
             onLoginSuccess(user);

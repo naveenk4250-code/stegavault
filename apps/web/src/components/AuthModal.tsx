@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Lock, Eye, EyeOff, AlertCircle, X } from 'lucide-react';
+import { AlertCircle, X } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { fetchGoogleUser, initiateDiscordOAuth, type OAuthUser } from '../lib/oauth';
 import { AnimatedOAuthButton } from './AnimatedOAuthButton';
 
 interface AuthModalProps {
-  initialMode?: 'login' | 'signup';
   onClose: () => void;
-  onEmailLogin: (email: string, password: string, fullName?: string) => void;
   onOAuthSuccess?: (user: OAuthUser) => void;
 }
+
 
 // ─── Brand SVG Icons ────────────────────────────────────────────────────────
 
@@ -48,43 +47,9 @@ function DiscordIcon() {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAuthSuccess }: AuthModalProps) {
-  const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+export function AuthModal({ onClose, onOAuthSuccess }: AuthModalProps) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [oauthLoading, setOauthLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleEmailSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError(null);
-
-    const trimmedEmail = email.trim();
-    const trimmedPassword = password;
-    const trimmedName = fullName.trim();
-
-    if (mode === 'signup' && !trimmedName) {
-      setAuthError('Please enter your full name');
-      return;
-    }
-    if (!trimmedEmail || !trimmedEmail.includes('@')) {
-      setAuthError('Please enter a valid email address');
-      return;
-    }
-    if (!trimmedPassword || trimmedPassword.length < 6) {
-      setAuthError('Password must be at least 6 characters');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      onEmailLogin(trimmedEmail, trimmedPassword, trimmedName || undefined);
-    }, 200);
-  };
 
   // ─── Google OAuth (client-side, no backend required) ─────────────────────
   const loginWithGoogle = useGoogleLogin({
@@ -119,7 +84,7 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
       className="fixed inset-0 bg-stone-950/75 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 overflow-y-auto"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="neo-modal my-auto">
+      <div className="neo-modal my-auto max-w-sm w-full">
         
         {/* Close Button */}
         <button
@@ -132,82 +97,25 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
 
         {/* Header */}
         <div className="px-8 pt-8 pb-6 border-b border-[#D6D2C4]">
-          <div className="flex items-center gap-3 mb-5">
+          <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-stone-950 flex items-center justify-center text-stone-100 font-mono font-bold text-xs">
-              SC
+              SV
             </div>
             <div>
               <div className="font-mono font-black text-stone-950 text-sm uppercase tracking-wider">
-                SECURE<span className="text-[#059669]">CLOUD</span>
+                STEGA<span className="text-[#059669]">VAULT</span>
               </div>
               <div className="text-[10px] font-mono text-stone-500 tracking-widest uppercase">
-                Zero-Knowledge Vault
+                Zero-Knowledge Authentication
               </div>
             </div>
-          </div>
-
-          {/* Login / Sign Up Toggle */}
-          <div className="flex border border-[#D6D2C4] bg-[#EBE7DC]">
-            <button
-              id="auth-tab-login"
-              type="button"
-              onClick={() => { setMode('login'); setAuthError(null); }}
-              className={`flex-1 py-2.5 text-xs font-mono uppercase tracking-widest font-bold transition-all ${
-                mode === 'login'
-                  ? 'bg-stone-950 text-white'
-                  : 'text-stone-600 hover:text-stone-950'
-              }`}
-            >
-              Log In
-            </button>
-            <button
-              id="auth-tab-signup"
-              type="button"
-              onClick={() => { setMode('signup'); setAuthError(null); }}
-              className={`flex-1 py-2.5 text-xs font-mono uppercase tracking-widest font-bold transition-all ${
-                mode === 'signup'
-                  ? 'bg-stone-950 text-white'
-                  : 'text-stone-600 hover:text-stone-950'
-              }`}
-            >
-              Sign Up
-            </button>
           </div>
         </div>
 
         <div className="px-8 py-6 space-y-4">
-          {/* Mode label */}
-          <p className="text-xs font-mono text-stone-500 uppercase tracking-wider">
-            {mode === 'login' ? 'Continue with your account' : 'Create a new account'}
+          <p className="text-xs font-mono text-stone-600 uppercase tracking-wider">
+            Sign in with verified OAuth provider
           </p>
-
-          {/* OAuth Buttons */}
-          <div className="space-y-2.5">
-            <AnimatedOAuthButton
-              provider="google"
-              onClick={() => handleOAuth('google')}
-              className={`w-full text-xs font-mono font-bold uppercase tracking-wider ${oauthLoading ? 'opacity-60 pointer-events-none' : ''}`}
-            >
-              <GoogleIcon />
-              <span>{oauthLoading ? 'Signing in...' : (mode === 'login' ? 'Continue' : 'Sign up')} with Google</span>
-            </AnimatedOAuthButton>
-
-            <AnimatedOAuthButton
-              provider="discord"
-              onClick={() => handleOAuth('discord')}
-              className="w-full text-xs font-mono font-bold uppercase tracking-wider"
-            >
-              <DiscordIcon />
-              <span>{mode === 'login' ? 'Continue' : 'Sign up'} with Discord</span>
-            </AnimatedOAuthButton>
-          </div>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-[#D6D2C4]" />
-            <span className="text-[11px] font-mono text-stone-400 uppercase tracking-wider">or</span>
-            <div className="flex-1 h-px bg-[#D6D2C4]" />
-          </div>
 
           {/* Error */}
           {authError && (
@@ -217,111 +125,30 @@ export function AuthModal({ initialMode = 'login', onClose, onEmailLogin, onOAut
             </div>
           )}
 
-          {/* Email / Password Form */}
-          <form onSubmit={handleEmailSubmit} className="space-y-3">
-            {mode === 'signup' && (
-              <div className="animate-fade-in">
-                <label className="block text-[10px] font-mono font-bold text-stone-700 uppercase mb-1.5 tracking-wider">
-                  Full Name / Organization
-                </label>
-                <input
-                  id="auth-name"
-                  type="text"
-                  placeholder="e.g. Alex Mercer"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="neo-input text-xs"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-[10px] font-mono font-bold text-stone-700 uppercase mb-1.5 tracking-wider">
-                Email Address
-              </label>
-              <input
-                id="auth-email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="neo-input text-xs"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-mono font-bold text-stone-700 uppercase mb-1.5 tracking-wider">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="auth-password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder={mode === 'signup' ? 'Create a strong password' : 'Enter your password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="neo-input text-xs"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
-                >
-                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="text-[11px] font-mono text-stone-500 pt-0.5">
-              <span>Minimum password length: 6 characters</span>
-            </div>
-
-            <button
-              id="auth-submit"
-              type="submit"
-              disabled={isSubmitting}
-              className={`w-full py-3 px-4 bg-[#059669] hover:bg-[#047857] active:bg-[#065f46] text-white font-mono font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 border-2 border-stone-950 shadow-[4px_4px_0_0_#1C1917] hover:shadow-[2px_2px_0_0_#1C1917] hover:translate-x-[2px] hover:translate-y-[2px] transition-all cursor-pointer mt-2 ${isSubmitting ? 'opacity-80 pointer-events-none' : ''}`}
+          {/* OAuth Buttons */}
+          <div className="space-y-3 pt-1">
+            <AnimatedOAuthButton
+              provider="google"
+              onClick={() => handleOAuth('google')}
+              className={`w-full text-xs font-mono font-bold uppercase tracking-wider ${oauthLoading ? 'opacity-60 pointer-events-none' : ''}`}
             >
-              {isSubmitting ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-stone-100 border-t-transparent rounded-full animate-spin" />
-                  <span>{mode === 'login' ? 'Authenticating...' : 'Creating Vault...'}</span>
-                </>
-              ) : (
-                <>
-                  <Lock className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>{mode === 'login' ? 'Log In to Vault' : 'Create Account'}</span>
-                </>
-              )}
-            </button>
-          </form>
+              <GoogleIcon />
+              <span>{oauthLoading ? 'Signing in...' : 'Continue with Google'}</span>
+            </AnimatedOAuthButton>
 
-          {/* Mode switcher link */}
-          <p className="text-center text-[11px] text-stone-500 font-mono">
-            {mode === 'login' ? (
-              <>
-                No account?{' '}
-                <button
-                  type="button"
-                  onClick={() => { setMode('signup'); setAuthError(null); }}
-                  className="text-[#059669] font-bold hover:underline cursor-pointer"
-                >
-                  Sign up free
-                </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => { setMode('login'); setAuthError(null); }}
-                  className="text-[#059669] font-bold hover:underline cursor-pointer"
-                >
-                  Log in
-                </button>
-              </>
-            )}
-          </p>
+            <AnimatedOAuthButton
+              provider="discord"
+              onClick={() => handleOAuth('discord')}
+              className="w-full text-xs font-mono font-bold uppercase tracking-wider"
+            >
+              <DiscordIcon />
+              <span>Continue with Discord</span>
+            </AnimatedOAuthButton>
+          </div>
+
+          <div className="text-[11px] font-mono text-stone-500 pt-3 text-center border-t border-[#D6D2C4]/60">
+            Real identity verification via Google & Discord OAuth 2.0
+          </div>
         </div>
 
         {/* Footer */}
