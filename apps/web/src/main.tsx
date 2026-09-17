@@ -35,7 +35,7 @@ class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div style={{ padding: '40px', fontFamily: 'monospace', backgroundColor: '#F0EDE4', color: '#1C1917', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <h1 style={{ color: '#059669', fontSize: '24px', fontWeight: 'bold', marginBottom: '12px' }}>SECURECLOUD SYSTEM RECOVERY</h1>
+          <h1 style={{ color: '#059669', fontSize: '24px', fontWeight: 'bold', marginBottom: '12px' }}>STEGAVAULT SYSTEM RECOVERY</h1>
           <p style={{ marginBottom: '24px', maxWidth: '600px', textAlign: 'center', fontSize: '14px', color: '#57534e' }}>
             {this.state.error?.message || 'A browser runtime error occurred.'}
           </p>

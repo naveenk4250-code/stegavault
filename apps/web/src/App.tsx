@@ -211,7 +211,7 @@ function AppInner() {
 
   // Helper to store active session with 4-hour expiration
   const persistSession = (u: OAuthUser) => {
-    const fullUser = { ...u, org: 'SecureCloud Enterprise' };
+    const fullUser = { ...u, org: 'StegaVault Enterprise' };
     const session = {
       user: fullUser,
       loginTimestamp: Date.now(),
@@ -707,10 +707,10 @@ function AppInner() {
           {/* Logo & Status */}
           <div className="flex items-center gap-3 cursor-pointer select-none shrink-0" onClick={() => setActiveTab('vault')}>
             <div className="w-10 h-10 rounded-none bg-stone-950 flex items-center justify-center text-stone-100 font-mono font-bold text-sm shadow-sm shrink-0">
-              SC
+              SV
             </div>
             <span className="font-brand text-xl font-black tracking-wider text-stone-950 uppercase leading-none shrink-0">
-              SECURE<span className="text-[#059669]">CLOUD</span>
+              STEGA<span className="text-[#059669]">VAULT</span>
             </span>
             <div className="h-10 px-3.5 flex items-center justify-center rounded-none bg-[#059669]/10 text-[#059669] border border-[#059669]/30 text-xs font-mono font-bold uppercase tracking-wider whitespace-nowrap shrink-0 shadow-sm">
               ENTERPRISE v2.4
@@ -1544,7 +1544,7 @@ function AppInner() {
         <div className="w-full px-4 sm:px-8 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-stone-500 uppercase">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-[#059669]" />
-            <span>SecureCloud Enterprise v2.4 · Zero-Knowledge Cryptographic Storage Engine</span>
+            <span>StegaVault Enterprise v2.4 · Zero-Knowledge Cryptographic Storage Engine</span>
           </div>
           <div>AES-256-GCM · LSB Steganography · Zero-Knowledge Vault</div>
         </div>

@@ -5,7 +5,7 @@ export class AppController {
   @Get()
   getApiStatus() {
     return {
-      name: 'SecureCloud Enterprise API',
+      name: 'StegaVault Enterprise API',
       version: '2.4.0',
       status: 'ONLINE',
       timestamp: new Date().toISOString(),

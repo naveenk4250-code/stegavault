@@ -18,7 +18,7 @@ describe('AppController', () => {
     it('should return API status object', () => {
       const status = appController.getApiStatus();
       expect(status).toMatchObject({
-        name: 'SecureCloud Enterprise API',
+        name: 'StegaVault Enterprise API',
         version: expect.any(String),
         status: 'ONLINE',
         timestamp: expect.any(String),
