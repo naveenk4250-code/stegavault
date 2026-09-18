@@ -324,6 +324,7 @@ function AppInner() {
   const stegoFileInputRef = useRef<HTMLInputElement>(null);
   const coverFileInputRef = useRef<HTMLInputElement>(null);
   const [targetFile, setTargetFile] = useState<File | null>(null);
+  const [detectedStegoFile, setDetectedStegoFile] = useState<File | null>(null);
   const [stegoContainerFile, setStegoContainerFile] = useState<File | null>(null);
   const [customCoverFile, setCustomCoverFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -344,21 +345,42 @@ function AppInner() {
   const [shareExpiry, setShareExpiry] = useState('7 days');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Check if an uploaded image contains a StegaVault LSB stego payload
+  const checkStegoContainer = async (file: File) => {
+    if (file.type.startsWith('image/') || file.name.toLowerCase().endsWith('.png')) {
+      try {
+        const payload = await extractLSB(file);
+        if (payload && payload.length >= 28) {
+          setDetectedStegoFile(file);
+          showToast(`Stego container detected in "${file.name}"!`);
+          return true;
+        }
+      } catch {
+        setDetectedStegoFile(null);
+      }
+    } else {
+      setDetectedStegoFile(null);
+    }
+    return false;
+  };
+
   // File Handlers for custom file upload
-  const handleFileDrop = (e: React.DragEvent) => {
+  const handleFileDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       setTargetFile(file);
+      await checkStegoContainer(file);
       showToast(`Loaded custom file: ${file.name}`);
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setTargetFile(file);
+      await checkStegoContainer(file);
       showToast(`Loaded custom file: ${file.name}`);
     }
   };
@@ -580,12 +602,16 @@ function AppInner() {
       const decryptedBuffer = await decryptPacked(packedBytes, decryptPassphrase);
       const checksum = await computeSHA256(decryptedBuffer);
 
-      const blob = new Blob([decryptedBuffer], { type: mimeType });
+      // Check if decryptedBuffer has embedded metadata from SV01 package!
+      const finalName = (decryptedBuffer as any).filename || decName;
+      const finalMime = (decryptedBuffer as any).mimeType || mimeType;
+
+      const blob = new Blob([decryptedBuffer], { type: finalMime });
       const decryptedUrl = URL.createObjectURL(blob);
 
       setIsDecrypting(false);
       setDecryptResult({
-        name: decName,
+        name: finalName,
         size: formatSize(decryptedBuffer.byteLength),
         checksum: checksum,
         verified: true,
@@ -593,8 +619,8 @@ function AppInner() {
       });
 
       addLog('STEGO_EXTRACT', `Extracted ${packedBytes.byteLength} bytes from 1-bit LSB pixels of stego container`);
-      addLog('FILE_DECRYPT', `Decrypted "${decName}" with real AES-256-GCM — Auth tag verified & SHA-256 checksum matched`);
-      showToast(`Payload extracted from stego container & verified for ${decName}!`);
+      addLog('FILE_DECRYPT', `Decrypted "${finalName}" with real AES-256-GCM — Auth tag verified & SHA-256 checksum matched`);
+      showToast(`Payload extracted from stego container & verified for ${finalName}!`);
     } catch {
       setIsDecrypting(false);
       showToast('Decryption failed: Incorrect passphrase or authentication tag mismatch!');
@@ -1126,6 +1152,34 @@ function AppInner() {
                       </div>
                     )}
                   </div>
+
+                  {/* Stego Container Auto-Detection Alert */}
+                  {detectedStegoFile && (
+                    <div className="mt-3 p-4 bg-[#EBE7DC] border border-[#059669] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-mono text-xs text-stone-800">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 bg-[#059669]/20 text-[#059669] flex items-center justify-center shrink-0">
+                          <Layers className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-[#059669] uppercase block">Stego Container Detected!</span>
+                          <span className="text-stone-600 text-[11px]">"{detectedStegoFile.name}" contains an embedded encrypted payload.</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStegoContainerFile(detectedStegoFile);
+                          setTargetFile(null);
+                          setDetectedStegoFile(null);
+                          setActiveTab('decrypt');
+                          showToast('Switched to Decrypt tab with your Stego container');
+                        }}
+                        className="px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white font-mono uppercase font-bold tracking-wider text-[11px] transition-colors shrink-0"
+                      >
+                        Switch to Extract & Decrypt →
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Step 2: Key & Cipher Config */}
@@ -1145,51 +1199,64 @@ function AppInner() {
 
                   <div>
                     <label className="block text-xs font-mono font-semibold uppercase text-stone-700 mb-2">
-                      Cipher Algorithm Standard
+                      3. Cryptographic Cipher
                     </label>
-                    <select
-                      value={selectedAlgo}
-                      onChange={(e) => setSelectedAlgo(e.target.value as any)}
-                      className="w-full bg-white border border-[#D6D2C4] rounded-none px-4 py-2.5 text-xs text-stone-900 focus:outline-none focus:border-[#059669] font-mono"
-                    >
-                      <option value="AES-256-GCM">AES-256-GCM (Hardware Accel)</option>
-                      <option value="ChaCha20-Poly1305">ChaCha20-Poly1305 (Mobile Optimized)</option>
-                    </select>
+                    <div className="flex gap-2">
+                      {(['AES-256-GCM', 'ChaCha20-Poly1305'] as const).map((algo) => (
+                        <button
+                          key={algo}
+                          type="button"
+                          onClick={() => setSelectedAlgo(algo)}
+                          className={`flex-1 py-2.5 px-3 rounded-none border text-xs font-mono font-semibold transition-all ${
+                            selectedAlgo === algo
+                              ? 'bg-[#059669] text-white border-[#059669]'
+                              : 'bg-white border-[#D6D2C4] text-stone-600 hover:text-stone-900 hover:bg-[#EBE7DC]'
+                          }`}
+                        >
+                          {algo}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Step 3: Stego Container Picker */}
+                {/* Step 3: Carrier Image Selection */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-xs font-mono font-semibold uppercase text-stone-700">
-                      3. Select Steganographic PNG Cover Image
+                      4. Select Stego Carrier Container
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => coverFileInputRef.current?.click()}
-                      className="text-[11px] font-mono text-[#059669] hover:underline flex items-center gap-1 uppercase font-bold"
-                    >
-                      <Upload className="w-3 h-3" />
-                      {customCoverFile ? `Custom: ${customCoverFile.name}` : '+ Custom Cover PNG'}
-                    </button>
-                    <input
-                      type="file"
-                      accept="image/png,image/*"
-                      ref={coverFileInputRef}
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          setCustomCoverFile(e.target.files[0]);
-                          showToast(`Selected custom cover: ${e.target.files[0].name}`);
-                        }
-                      }}
-                      className="hidden"
-                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept="image/png"
+                        ref={coverFileInputRef}
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            setCustomCoverFile(file);
+                            showToast(`Custom cover loaded: ${file.name}`);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => coverFileInputRef.current?.click()}
+                        className="text-[11px] font-mono text-[#059669] hover:underline flex items-center gap-1 font-semibold"
+                      >
+                        <Upload className="w-3 h-3" />
+                        Upload Custom PNG Cover
+                      </button>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
                       { id: 'quantum_nebula_4k.png', name: 'Quantum Nebula PNG', cap: '16 MB Capacity' },
                       { id: 'deep_ocean_texture.png', name: 'Deep Ocean PNG', cap: '8.4 MB Capacity' },
                       { id: 'minimal_monochrome_art.png', name: 'Monochrome PNG', cap: '4.2 MB Capacity' },
+                      { id: 'cyber_grid_matrix.png', name: 'Cyber Grid PNG', cap: '12 MB Capacity' },
                     ].map((img) => (
                       <div
                         key={img.id}
@@ -1269,15 +1336,15 @@ function AppInner() {
                   <Unlock className="w-5 h-5 text-cyan-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold font-mono text-stone-900 uppercase tracking-tight">Key Extractor & Payload Decryptor</h2>
-                  <p className="text-xs font-mono text-stone-500 uppercase">Reconstruct plaintext payload directly in memory</p>
+                  <h2 className="text-xl font-bold font-mono text-stone-900 uppercase tracking-tight">Stego Extractor & Payload Decryptor</h2>
+                  <p className="text-xs font-mono text-stone-500 uppercase">Extract hidden stego payload & reconstruct plaintext in memory</p>
                 </div>
               </div>
 
               <form onSubmit={handleDecryptSubmit} className="space-y-5">
                 <div>
                   <label className="block text-xs font-mono font-semibold uppercase text-stone-700 mb-2">
-                    Upload Stego-Cover Image (PNG containing embedded LSB key)
+                    Upload Stego Container Image (PNG containing hidden payload)
                   </label>
                   <input
                     type="file"
@@ -1295,14 +1362,14 @@ function AppInner() {
                         <Layers className="w-6 h-6 shrink-0" />
                         <div className="text-left font-mono">
                           <span className="text-stone-900 block font-bold text-sm">{stegoContainerFile.name}</span>
-                          <span className="text-xs text-stone-500">{formatSize(stegoContainerFile.size)} · Custom Stego Container PNG</span>
+                          <span className="text-xs text-stone-500">{formatSize(stegoContainerFile.size)} · Stego Container PNG</span>
                         </div>
                       </div>
                     ) : (
                       <div>
                         <Layers className="w-8 h-8 text-cyan-600 mx-auto mb-2" />
-                        <p className="text-sm font-mono font-bold uppercase text-stone-900">Click to choose custom Stego Container PNG image</p>
-                        <p className="text-xs text-stone-500 font-mono mt-1 uppercase">Select your PNG image containing embedded LSB key</p>
+                        <p className="text-sm font-mono font-bold uppercase text-stone-900">Click to choose Stego Container PNG image</p>
+                        <p className="text-xs text-stone-500 font-mono mt-1 uppercase">Select any PNG image containing hidden encrypted payload</p>
                       </div>
                     )}
                   </div>
@@ -1328,7 +1395,7 @@ function AppInner() {
                   className="w-full py-3.5 rounded-none bg-[#059669] hover:bg-[#047857] text-white font-mono text-xs uppercase font-bold tracking-widest transition-colors flex items-center justify-center gap-2"
                 >
                   <Unlock className="w-4 h-4 stroke-[2.5]" />
-                  <span>Extract LSB Key & Decrypt Payload</span>
+                  <span>Extract & Decrypt Payload</span>
                 </button>
               </form>
 

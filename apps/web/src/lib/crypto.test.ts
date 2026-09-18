@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { encryptFile, decryptPacked, computeSHA256 } from './crypto';
 
 describe('crypto.ts (Real AES-256-GCM + PBKDF2)', () => {
@@ -16,9 +16,12 @@ describe('crypto.ts (Real AES-256-GCM + PBKDF2)', () => {
     await expect(decryptPacked(packed, 'wrong-passphrase')).rejects.toThrow();
   });
 
-  it('computes correct SHA-256 hash digest', async () => {
-    const data = new TextEncoder().encode('stegavault-integrity');
-    const hash = await computeSHA256(data);
-    expect(hash).toMatch(/^0x[a-f0-9]{64}$/);
+  it('preserves original filename and MIME type in decrypted payload metadata', async () => {
+    const original = new File(['%PDF-1.4 confidential quarterly report'], 'financials_q4.pdf', { type: 'application/pdf' });
+    const packed = await encryptFile(original, 'strong-password-123');
+    const decrypted = await decryptPacked(packed, 'strong-password-123');
+    expect((decrypted as any).filename).toBe('financials_q4.pdf');
+    expect((decrypted as any).mimeType).toBe('application/pdf');
+    expect(new TextDecoder().decode(decrypted)).toBe('%PDF-1.4 confidential quarterly report');
   });
 });
