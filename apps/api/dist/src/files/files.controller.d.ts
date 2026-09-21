@@ -22,11 +22,11 @@ export declare class FilesController {
         originalFilename: string;
     }>;
     listFiles(emailHeader: string): Promise<{
-        id: string;
-        originalFilename: string;
-        mimeType: string;
+        id: any;
+        originalFilename: any;
+        mimeType: any;
         sizeBytes: number;
-        createdAt: string;
+        createdAt: any;
     }[]>;
     getDownloadUrl(fileId: string, emailHeader: string): Promise<{
         downloadUrl: string;

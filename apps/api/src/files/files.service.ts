@@ -236,7 +236,7 @@ export class FilesService {
       },
     });
 
-    return files.map((f) => ({
+    return files.map((f: any) => ({
       id: f.id,
       originalFilename: f.originalFilename,
       mimeType: f.mimeType,

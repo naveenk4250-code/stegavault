@@ -55,11 +55,11 @@ export declare class FilesService {
         ciphertextSha256: string;
     }>;
     listFiles(ownerId: string): Promise<{
-        id: string;
-        originalFilename: string;
-        mimeType: string;
+        id: any;
+        originalFilename: any;
+        mimeType: any;
         sizeBytes: number;
-        createdAt: string;
+        createdAt: any;
     }[]>;
     deleteFile(fileId: string, ownerId: string): Promise<{
         success: boolean;
