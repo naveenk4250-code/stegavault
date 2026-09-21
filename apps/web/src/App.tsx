@@ -41,78 +41,13 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from "./components/ThemeToggle";
 
-// --- PRODUCTION MOCK DATA ---
-const INITIAL_VAULT_FILES = [
-  {
-    id: 'sec-801',
-    name: 'q3_financial_audit_confidential.pdf',
-    type: 'PDF Document',
-    sizeBytes: 4404019,
-    hash: '0x8f4a92c1e91c...f03a',
-    algo: 'AES-256-GCM',
-    stegoCover: 'quantum_nebula_4k.png',
-    stegoCapacity: '4.8 MB Capacity',
-    uploadedAt: '2026-07-30 14:32:08',
-    status: 'Encrypted & Hidden',
-  },
-  {
-    id: 'sec-802',
-    name: 'production_database_credentials.json',
-    type: 'JSON Config',
-    sizeBytes: 18841,
-    hash: '0x3c7e81ab41a9...92e1',
-    algo: 'AES-256-GCM',
-    stegoCover: 'deep_ocean_texture.png',
-    stegoCapacity: '2.1 MB Capacity',
-    uploadedAt: '2026-07-28 09:15:44',
-    status: 'Encrypted & Hidden',
-  },
-  {
-    id: 'sec-803',
-    name: 'master_tls_private_key.pem',
-    type: 'PEM Security Key',
-    sizeBytes: 3172,
-    hash: '0xd92f40a70192...b84c',
-    algo: 'ChaCha20-Poly1305',
-    stegoCover: 'minimal_monochrome_art.png',
-    stegoCapacity: '1.5 MB Capacity',
-    uploadedAt: '2026-07-24 18:44:12',
-    status: 'Encrypted & Hidden',
-  },
-  {
-    id: 'sec-804',
-    name: 'corporate_strategy_roadmap_2027.docx',
-    type: 'Office Document',
-    sizeBytes: 12582912,
-    hash: '0x71e9c308a11e...e408',
-    algo: 'AES-256-GCM',
-    stegoCover: 'quantum_nebula_4k.png',
-    stegoCapacity: '16.0 MB Capacity',
-    uploadedAt: '2026-07-20 11:02:30',
-    status: 'Encrypted & Hidden',
-  },
-];
-
-const INITIAL_SHARES = [
-  {
-    id: 'sh-501',
-    fileName: 'q3_financial_audit_confidential.pdf',
-    recipient: 'audit.team@enterprise.io',
-    permission: 'Download & Decrypt',
-    expiresIn: '4 days remaining',
-    createdAt: '2026-07-31 10:15',
-    accessCount: 3,
-  },
-  {
-    id: 'sh-502',
-    fileName: 'master_tls_private_key.pem',
-    recipient: 'secops-lead@enterprise.io',
-    permission: 'One-time Read Only',
-    expiresIn: '12 hours remaining',
-    createdAt: '2026-08-01 02:00',
-    accessCount: 1,
-  },
-];
+import {
+  requestUploadUrl,
+  confirmUpload,
+  listFiles,
+  requestDownloadUrl,
+  deleteFile as apiDeleteFile,
+} from './lib/api';
 
 // Real-time audit log — starts empty, populated only by actual user actions
 const INITIAL_AUDIT_LOGS: {
@@ -280,9 +215,44 @@ function AppInner() {
     } catch {}
 
     if (user?.email) {
-      setFiles(loadUserVaultFiles(user.email));
       setShares(loadUserShares(user.email));
       setLogs(loadUserLogs(user.email));
+
+      // Initial load from local cache for instant UI rendering
+      const localFiles = loadUserVaultFiles(user.email);
+      setFiles(localFiles);
+
+      // Query cloud S3 files via backend API
+      listFiles(user.email)
+        .then((remoteFiles) => {
+          const mapped = remoteFiles.map((f: any) => ({
+            id: f.id,
+            remoteId: f.id,
+            name: f.originalFilename,
+            type: f.mimeType,
+            sizeBytes: f.sizeBytes,
+            hash: '—',
+            algo: 'AES-256-GCM',
+            stegoCover: 'cloud',
+            stegoCapacity: '',
+            uploadedAt: f.createdAt.replace('T', ' ').substring(0, 19),
+            status: 'Encrypted & Hidden',
+            ownerEmail: user.email,
+          }));
+
+          setFiles((prev) => {
+            const combined = [...mapped];
+            for (const local of prev) {
+              if (!combined.some((c) => c.id === local.id || (local.remoteId && c.remoteId === local.remoteId))) {
+                combined.push(local);
+              }
+            }
+            return combined;
+          });
+        })
+        .catch((err) => {
+          console.warn('Cloud files fetch note:', err);
+        });
     } else {
       setFiles([]);
       setShares([]);
@@ -338,6 +308,7 @@ function AppInner() {
   const [decryptPassphrase, setDecryptPassphrase] = useState('');
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [decryptResult, setDecryptResult] = useState<any | null>(null);
+  const [selectedVaultFile, setSelectedVaultFile] = useState<any | null>(null);
 
   // Share Modal & Clipboard state
   const [activeShareFile, setActiveShareFile] = useState<any | null>(null);
@@ -505,37 +476,70 @@ function AppInner() {
 
       setEncryptStep(4); // 4. Finalizing upload & storing into encrypted vault
 
-      setTimeout(() => {
-        setIsEncrypting(false);
-        const coverName = customCoverFile ? customCoverFile.name : selectedCover;
-        const newFile = {
-          id: `sec-${Date.now()}`,
-          name: currentFile.name,
-          type: currentFile.type || 'Binary File',
-          sizeBytes: currentFile.size,
-          hash: `${realHash.substring(0, 10)}...${realHash.substring(realHash.length - 4)}`,
-          fullHash: realHash,
-          algo: selectedAlgo,
-          stegoCover: coverName,
-          stegoCapacity: `${formatSize(Math.max(currentFile.size * 2, 4000000))} Capacity`,
-          uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-          status: 'Encrypted & Hidden',
-          dataUrl: stegoDataUrl, // Real Stego PNG containing embedded ciphertext!
-          stegoDataUrl: stegoDataUrl,
-          encryptedBytesBase64: uint8ArrayToBase64(packedCiphertext),
-          ownerEmail: user?.email || 'anonymous',
-        };
+      let remoteFileId: string | null = null;
+      if (user?.email) {
+        try {
+          // Zero-knowledge: Send only stego container metadata & ciphertext sha256 to backend
+          const uploadInfo = await requestUploadUrl(user.email, {
+            filename: currentFile.name,
+            mimeType: currentFile.type || 'application/octet-stream',
+            sizeBytes: stegoBlob.size,
+            ciphertextSha256: realHash,
+          });
 
-        setFiles((prevFiles) => [newFile, ...prevFiles]);
-        addLog('FILE_ENCRYPT', `Encrypted "${currentFile.name}" (${formatSize(currentFile.size)}) with real AES-256-GCM (PBKDF2 250k iter)`);
-        addLog('STEGO_EMBED', `Embedded ${packedCiphertext.byteLength} ciphertext bytes into ${coverName} via 1-bit LSB spatial pixels`);
+          // Upload stego image bytes directly to AWS S3 via presigned PUT URL
+          const s3PutRes = await fetch(uploadInfo.uploadUrl, {
+            method: 'PUT',
+            body: stegoBlob,
+            headers: {
+              'Content-Type': 'image/png',
+            },
+          });
 
-        showToast(`Payload ${currentFile.name} encrypted & hidden in ${coverName}`);
-        setTargetFile(null);
-        setCustomCoverFile(null);
-        setPassphrase('');
-        setActiveTab('vault');
-      }, 1500);
+          if (!s3PutRes.ok) {
+            throw new Error(`S3 PUT failed with status ${s3PutRes.status}`);
+          }
+
+          // Confirm upload with backend to activate file
+          await confirmUpload(user.email, uploadInfo.fileId);
+          remoteFileId = uploadInfo.fileId;
+          addLog('S3_UPLOAD', `Uploaded encrypted stego container for "${currentFile.name}" to AWS S3`);
+        } catch (cloudErr: any) {
+          console.warn('Cloud persistence note:', cloudErr);
+          addLog('S3_UPLOAD_NOTE', `S3 upload status: ${cloudErr.message || 'S3 upload failed'}. Stored in local vault.`, 'WARNING');
+        }
+      }
+
+      setIsEncrypting(false);
+      const coverName = customCoverFile ? customCoverFile.name : selectedCover;
+      const newFile = {
+        id: remoteFileId || `sec-${Date.now()}`,
+        remoteId: remoteFileId,
+        name: currentFile.name,
+        type: currentFile.type || 'Binary File',
+        sizeBytes: currentFile.size,
+        hash: `${realHash.substring(0, 10)}...${realHash.substring(realHash.length - 4)}`,
+        fullHash: realHash,
+        algo: selectedAlgo,
+        stegoCover: coverName,
+        stegoCapacity: `${formatSize(Math.max(currentFile.size * 2, 4000000))} Capacity`,
+        uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        status: 'Encrypted & Hidden',
+        dataUrl: stegoDataUrl, // Real Stego PNG containing embedded ciphertext!
+        stegoDataUrl: stegoDataUrl,
+        encryptedBytesBase64: uint8ArrayToBase64(packedCiphertext),
+        ownerEmail: user?.email || 'anonymous',
+      };
+
+      setFiles((prevFiles) => [newFile, ...prevFiles.filter((f) => f.id !== newFile.id)]);
+      addLog('FILE_ENCRYPT', `Encrypted "${currentFile.name}" (${formatSize(currentFile.size)}) with real AES-256-GCM (PBKDF2 250k iter)`);
+      addLog('STEGO_EMBED', `Embedded ${packedCiphertext.byteLength} ciphertext bytes into ${coverName} via 1-bit LSB spatial pixels`);
+
+      showToast(remoteFileId ? `Payload ${currentFile.name} encrypted, hidden & saved to Cloud S3!` : `Payload ${currentFile.name} encrypted & hidden in ${coverName}`);
+      setTargetFile(null);
+      setCustomCoverFile(null);
+      setPassphrase('');
+      setActiveTab('vault');
     } catch (err: any) {
       setIsEncrypting(false);
       showToast(`Pipeline failed: ${err?.message || 'Web Crypto / Canvas error'}`);
@@ -578,8 +582,8 @@ function AppInner() {
           packedBytes = new Uint8Array(buf);
         }
       } else if (files.length > 0) {
-        // Use the most recent vault file
-        const target = files[0];
+        // Use selectedVaultFile if selected, else most recent vault file
+        const target = selectedVaultFile || files[0];
         decName = target.name;
         mimeType = target.type || 'text/plain';
 
@@ -588,6 +592,17 @@ function AppInner() {
           const stegoBlob = dataUrlToBlob(target.stegoDataUrl || target.dataUrl);
           packedBytes = await extractLSB(stegoBlob);
           console.log(`Extracted ${packedBytes.byteLength} bytes from vault stego PNG via LSB.`);
+        } else if (target.remoteId && user?.email) {
+          // Fetch encrypted stego container from Cloud S3
+          showToast(`Fetching container from Cloud S3 for "${target.name}"...`);
+          const { downloadUrl } = await requestDownloadUrl(user.email, target.remoteId);
+          const s3Res = await fetch(downloadUrl);
+          if (!s3Res.ok) {
+            throw new Error(`Cloud download failed with status ${s3Res.status}`);
+          }
+          const s3Blob = await s3Res.blob();
+          packedBytes = await extractLSB(s3Blob);
+          console.log(`Extracted ${packedBytes.byteLength} bytes from S3 stego container via LSB.`);
         } else if (target.encryptedBytesBase64) {
           packedBytes = base64ToUint8Array(target.encryptedBytesBase64);
         }
@@ -629,7 +644,7 @@ function AppInner() {
   };
 
   // Handle Binary Download (Downloads original binary photo/file or stego container intact!)
-  const handleDownloadDecrypted = (fileObj: any) => {
+  const handleDownloadDecrypted = async (fileObj: any) => {
     // 1. If decryptResult object was passed or active
     if (fileObj && typeof fileObj === 'object' && fileObj.dataUrl && !fileObj.stegoCover) {
       const a = document.createElement('a');
@@ -662,6 +677,32 @@ function AppInner() {
       return;
     }
 
+    // Cloud S3: Download directly via presigned GET URL
+    if (targetItem?.remoteId && user?.email) {
+      try {
+        showToast(`Requesting S3 download for "${fileName}"...`);
+        const { downloadUrl } = await requestDownloadUrl(user.email, targetItem.remoteId);
+        const res = await fetch(downloadUrl);
+        if (!res.ok) throw new Error(`S3 download failed with status ${res.status}`);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const baseName = fileName.replace(/\.[^/.]+$/, '');
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `${baseName}_stego.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+        addLog('FILE_DOWNLOAD', `Downloaded stego container PNG from S3 for "${fileName}"`);
+        showToast(`Downloaded stego container for "${fileName}"`);
+        return;
+      } catch (err: any) {
+        showToast(`Cloud download failed: ${err.message}`);
+        return;
+      }
+    }
+
     // 2. Fallback to active decryptResult if present
     if (decryptResult && decryptResult.dataUrl) {
       const a = document.createElement('a');
@@ -676,8 +717,8 @@ function AppInner() {
     }
 
     // 3. Gracefully handle sample items without stored binary payload
-    showToast('Demo file record has no local stego image. Please encrypt a real file.');
-    addLog('FILE_DOWNLOAD_SKIPPED', `No binary stego container available for demo record "${fileName}"`, 'INFO');
+    showToast('No stego image available for this record. Please encrypt a real file.');
+    addLog('FILE_DOWNLOAD_SKIPPED', `No binary stego container available for record "${fileName}"`, 'INFO');
   };
 
   // Filtered files - strictly isolated per authenticated user
@@ -686,28 +727,36 @@ function AppInner() {
     if (f.ownerEmail && user?.email && f.ownerEmail !== user.email) {
       return false;
     }
-    const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase()) || f.hash.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase()) || (f.hash?.toLowerCase() ?? '').includes(searchTerm.toLowerCase());
     const matchesAlgo = filterAlgo === 'ALL' || f.algo === filterAlgo;
     return matchesSearch && matchesAlgo;
   });
 
   const totalUsedBytes = files.reduce((acc, f) => acc + f.sizeBytes, 0);
 
-  const loadDemoData = () => {
+  const refreshVaultFromCloud = async () => {
     if (!user?.email) return;
-    const demoFiles = INITIAL_VAULT_FILES.map((f) => ({
-      ...f,
-      id: `${f.id}-${user.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '')}`,
-      ownerEmail: user.email,
-    }));
-    const demoShares = INITIAL_SHARES.map((s) => ({
-      ...s,
-      ownerEmail: user.email,
-    }));
-    setFiles(demoFiles);
-    setShares(demoShares);
-    addLog('SYSTEM_DEMO', 'Loaded sample demo records into vault and shares for preview', 'SUCCESS');
-    showToast('Loaded sample demo records');
+    try {
+      const remoteFiles = await listFiles(user.email);
+      setFiles(remoteFiles.map((f: any) => ({
+        id: f.id,
+        name: f.originalFilename,
+        type: f.mimeType,
+        sizeBytes: f.sizeBytes,
+        hash: '—',
+        algo: 'AES-256-GCM',
+        stegoCover: 'cloud',
+        stegoCapacity: '',
+        uploadedAt: f.createdAt.replace('T', ' ').substring(0, 19),
+        status: 'Encrypted & Hidden',
+        ownerEmail: user.email,
+        remoteId: f.id,
+      })));
+      showToast('Vault refreshed from cloud storage');
+      addLog('VAULT_REFRESH', 'Refreshed vault index from cloud S3 storage');
+    } catch (err: any) {
+      showToast('Cloud refresh failed — check API connection');
+    }
   };
 
   // --- 1. UNAUTHENTICATED: INTERACTIVE PRODUCT LANDING & SHOWCASE ---
@@ -937,12 +986,12 @@ function AppInner() {
 
               <div className="flex items-center gap-3">
                 <button
-                  onClick={loadDemoData}
+                  onClick={refreshVaultFromCloud}
                   className="flex items-center gap-2 bg-[#EBE7DC] border border-[#D6D2C4] hover:border-stone-400 px-3.5 py-2.5 rounded-none text-xs font-mono uppercase tracking-wider font-semibold text-stone-700 transition-colors"
-                  title="Populate sample demo files and shares"
+                  title="Refresh encrypted vault files from cloud storage"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-stone-500" />
-                  <span>Load Demo Data</span>
+                  <span>Refresh Vault</span>
                 </button>
 
 
@@ -963,7 +1012,7 @@ function AppInner() {
                   <FolderLock className="w-4 h-4 text-[#059669]" />
                   <h2 className="font-mono font-bold text-xs uppercase tracking-wider text-stone-900">Encrypted Enterprise Vault Payload Index</h2>
                 </div>
-                <span className="text-xs font-mono text-stone-500 uppercase">Local Browser Storage: <strong className="text-[#059669]">Active</strong></span>
+                <span className="text-xs font-mono text-stone-500 uppercase">Cloud S3 Storage: <strong className="text-[#059669]">Active</strong></span>
               </div>
 
               <div className="overflow-x-auto">
@@ -1033,6 +1082,7 @@ function AppInner() {
                             </button>
                             <button
                               onClick={() => {
+                                setSelectedVaultFile(file);
                                 setActiveTab('decrypt');
                                 addLog('VAULT_ACCESS', `Opened "${file.name}" for key extraction & decryption`);
                                 showToast(`Loaded ${file.name} for key extraction`);
@@ -1054,8 +1104,15 @@ function AppInner() {
                               <Share2 className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => {
-                                addLog('FILE_DELETE', `Permanently deleted encrypted payload "${file.name}" from vault`, 'SUCCESS');
+                              onClick={async () => {
+                                if (file.remoteId && user?.email) {
+                                  try {
+                                    await apiDeleteFile(user.email, file.remoteId);
+                                  } catch (delErr: any) {
+                                    console.warn('Failed to delete on cloud:', delErr);
+                                  }
+                                }
+                                addLog('FILE_DELETE', `Deleted encrypted payload "${file.name}" from vault`, 'SUCCESS');
                                 setFiles(files.filter((f) => f.id !== file.id));
                                 showToast(`Deleted ${file.name}`);
                               }}
@@ -1085,11 +1142,11 @@ function AppInner() {
                         <span>Encrypt & Embed File</span>
                       </button>
                       <button
-                        onClick={loadDemoData}
+                        onClick={refreshVaultFromCloud}
                         className="inline-flex items-center gap-2 bg-[#EBE7DC] border border-[#D6D2C4] hover:border-stone-400 text-stone-700 font-mono uppercase text-xs font-bold tracking-widest px-4 py-2 transition-colors"
                       >
                         <RefreshCw className="w-3.5 h-3.5 text-stone-600" />
-                        <span>Load Sample Records</span>
+                        <span>Refresh from Cloud</span>
                       </button>
                     </div>
                   )}
@@ -1373,6 +1430,18 @@ function AppInner() {
                       </div>
                     )}
                   </div>
+                  {selectedVaultFile && !stegoContainerFile && (
+                    <div className="mt-2 p-2.5 bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between text-xs font-mono text-cyan-700">
+                      <span>Target Vault Item: <strong>{selectedVaultFile.name}</strong> ({selectedVaultFile.remoteId ? 'Cloud S3' : 'Local'})</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedVaultFile(null)}
+                        className="text-stone-500 hover:text-rose-600 underline text-[11px]"
+                      >
+                        Clear selection
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div>

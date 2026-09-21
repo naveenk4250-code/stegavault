@@ -31,11 +31,6 @@ let AuthController = class AuthController {
     googleCallback(req, res) {
         res.redirect(buildRedirect(req.user));
     }
-    discordLogin() {
-    }
-    discordCallback(req, res) {
-        res.redirect(buildRedirect(req.user));
-    }
     linkedinLogin() {
     }
     linkedinCallback(req, res) {
@@ -59,22 +54,6 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "googleCallback", null);
-__decorate([
-    (0, common_1.Get)('discord'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('discord')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
-], AuthController.prototype, "discordLogin", null);
-__decorate([
-    (0, common_1.Get)('discord/callback'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('discord')),
-    __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Res)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
-    __metadata("design:returntype", void 0)
-], AuthController.prototype, "discordCallback", null);
 __decorate([
     (0, common_1.Get)('linkedin'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('linkedin')),

@@ -6,20 +6,18 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AuthModule = void 0;
+exports.FilesModule = void 0;
 const common_1 = require("@nestjs/common");
-const passport_1 = require("@nestjs/passport");
-const auth_controller_1 = require("./auth.controller");
-const google_strategy_1 = require("./strategies/google.strategy");
-const linkedin_strategy_1 = require("./strategies/linkedin.strategy");
-let AuthModule = class AuthModule {
+const files_controller_1 = require("./files.controller");
+const files_service_1 = require("./files.service");
+let FilesModule = class FilesModule {
 };
-exports.AuthModule = AuthModule;
-exports.AuthModule = AuthModule = __decorate([
+exports.FilesModule = FilesModule;
+exports.FilesModule = FilesModule = __decorate([
     (0, common_1.Module)({
-        imports: [passport_1.PassportModule],
-        controllers: [auth_controller_1.AuthController],
-        providers: [google_strategy_1.GoogleStrategy, linkedin_strategy_1.LinkedInStrategy],
+        controllers: [files_controller_1.FilesController],
+        providers: [files_service_1.FilesService],
+        exports: [files_service_1.FilesService],
     })
-], AuthModule);
-//# sourceMappingURL=auth.module.js.map
+], FilesModule);
+//# sourceMappingURL=files.module.js.map

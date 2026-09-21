@@ -9,31 +9,26 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AppController = void 0;
+exports.PrismaService = void 0;
 const common_1 = require("@nestjs/common");
-let AppController = class AppController {
-    getApiStatus() {
-        return {
-            name: 'StegaVault Enterprise API',
-            version: '2.4.0',
-            status: 'ONLINE',
-            timestamp: new Date().toISOString(),
-            endpoints: {
-                oauthGoogle: '/auth/oauth/google',
-                oauthDiscord: '/auth/oauth/discord',
-                oauthLinkedIn: '/auth/oauth/linkedin',
-            },
-        };
+const client_1 = require("@prisma/client");
+const adapter_pg_1 = require("@prisma/adapter-pg");
+let PrismaService = class PrismaService extends client_1.PrismaClient {
+    constructor() {
+        const connectionString = process.env.DATABASE_URL;
+        const adapter = new adapter_pg_1.PrismaPg({ connectionString });
+        super({ adapter });
+    }
+    async onModuleInit() {
+        await this.$connect();
+    }
+    async onModuleDestroy() {
+        await this.$disconnect();
     }
 };
-exports.AppController = AppController;
-__decorate([
-    (0, common_1.Get)(),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
-], AppController.prototype, "getApiStatus", null);
-exports.AppController = AppController = __decorate([
-    (0, common_1.Controller)()
-], AppController);
-//# sourceMappingURL=app.controller.js.map
+exports.PrismaService = PrismaService;
+exports.PrismaService = PrismaService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [])
+], PrismaService);
+//# sourceMappingURL=prisma.service.js.map
