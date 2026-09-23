@@ -24,4 +24,19 @@ describe('crypto.ts (Real AES-256-GCM + PBKDF2)', () => {
     expect((decrypted as any).mimeType).toBe('application/pdf');
     expect(new TextDecoder().decode(decrypted)).toBe('%PDF-1.4 confidential quarterly report');
   });
+
+  it('correctly attaches key to stego payload and decrypts without manual passphrase', async () => {
+    const original = new File(['confidential user A document'], 'secret_plan.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    const packed = await encryptFile(original, 'user-a-shared-key-999');
+    const { attachKeyToStegoPayload, unpackStegoPayload } = await import('./crypto');
+    const payloadWithKey = attachKeyToStegoPayload(packed, 'user-a-shared-key-999');
+
+    const unpacked = unpackStegoPayload(payloadWithKey);
+    expect(unpacked.attachedKey).toBe('user-a-shared-key-999');
+
+    // Decrypt directly without supplying passphrase
+    const decrypted = await decryptPacked(payloadWithKey);
+    expect((decrypted as any).filename).toBe('secret_plan.docx');
+    expect(new TextDecoder().decode(decrypted)).toBe('confidential user A document');
+  });
 });

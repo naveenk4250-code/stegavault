@@ -9,6 +9,8 @@ import {
   uint8ArrayToBase64,
   base64ToUint8Array,
   computeSHA256,
+  attachKeyToStegoPayload,
+  unpackStegoPayload,
 } from './lib/crypto';
 import {
   embedLSB,
@@ -299,6 +301,7 @@ function AppInner() {
   const [customCoverFile, setCustomCoverFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [passphrase, setPassphrase] = useState('');
+  const [attachKey, setAttachKey] = useState(true);
   const [selectedAlgo, setSelectedAlgo] = useState<'AES-256-GCM' | 'ChaCha20-Poly1305'>('AES-256-GCM');
   const [selectedCover, setSelectedCover] = useState('quantum_nebula_4k.png');
   const [isEncrypting, setIsEncrypting] = useState(false);
@@ -309,6 +312,16 @@ function AppInner() {
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [decryptResult, setDecryptResult] = useState<any | null>(null);
   const [selectedVaultFile, setSelectedVaultFile] = useState<any | null>(null);
+  const [detectedStegoKey, setDetectedStegoKey] = useState<string | null>(null);
+  const [decryptedStegoFile, setDecryptedStegoFile] = useState<{
+    name: string;
+    mimeType: string;
+    sizeBytes: number;
+    checksum: string;
+    dataUrl: string;
+    originalCoverName: string;
+    key: string;
+  } | null>(null);
 
   // Share Modal & Clipboard state
   const [activeShareFile, setActiveShareFile] = useState<any | null>(null);
@@ -322,15 +335,47 @@ function AppInner() {
       try {
         const payload = await extractLSB(file);
         if (payload && payload.length >= 28) {
+          const { packedCiphertext, attachedKey } = unpackStegoPayload(payload);
           setDetectedStegoFile(file);
+          setDetectedStegoKey(attachedKey);
+
+          if (attachedKey) {
+            try {
+              const decryptedBuf = await decryptPacked(packedCiphertext, attachedKey);
+              const checksum = await computeSHA256(decryptedBuf);
+              const fileName = (decryptedBuf as any).filename || 'decrypted_payload.txt';
+              const mimeType = (decryptedBuf as any).mimeType || 'application/octet-stream';
+              const blob = new Blob([decryptedBuf], { type: mimeType });
+              const url = URL.createObjectURL(blob);
+
+              setDecryptedStegoFile({
+                name: fileName,
+                mimeType,
+                sizeBytes: decryptedBuf.byteLength,
+                checksum,
+                dataUrl: url,
+                originalCoverName: file.name,
+                key: attachedKey,
+              });
+              showToast(`🎉 Stego image detected with key attached! Auto-extracted "${fileName}".`);
+              return true;
+            } catch (decErr: any) {
+              console.warn('Auto-decrypt with attached key failed:', decErr);
+            }
+          }
+          setDecryptedStegoFile(null);
           showToast(`Stego container detected in "${file.name}"!`);
           return true;
         }
       } catch {
         setDetectedStegoFile(null);
+        setDetectedStegoKey(null);
+        setDecryptedStegoFile(null);
       }
     } else {
       setDetectedStegoFile(null);
+      setDetectedStegoKey(null);
+      setDecryptedStegoFile(null);
     }
     return false;
   };
@@ -356,11 +401,19 @@ function AppInner() {
     }
   };
 
-  const handleStegoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleStegoFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setStegoContainerFile(file);
       showToast(`Loaded custom stego image: ${file.name}`);
+      try {
+        const payload = await extractLSB(file);
+        const { attachedKey } = unpackStegoPayload(payload);
+        if (attachedKey) {
+          setDecryptPassphrase(attachedKey);
+          showToast(`Attached key detected and auto-filled!`);
+        }
+      } catch {}
     }
   };
 
@@ -466,11 +519,17 @@ function AppInner() {
       const originalBuffer = await currentFile.arrayBuffer();
       const realHash = await computeSHA256(originalBuffer);
 
+      // Attach key if selected (enables User B to retrieve the attached file upon upload)
+      let payloadToEmbed = packedCiphertext;
+      if (attachKey && secretPass) {
+        payloadToEmbed = attachKeyToStegoPayload(packedCiphertext, secretPass);
+      }
+
       // 3. Real 1-Bit LSB Steganographic Embedding into Cover PNG
       setEncryptStep(3); // 3. Hiding bits into LSB of cover image pixels
-      const coverBlob = customCoverFile || (await generateCoverBlob(selectedCover, packedCiphertext.byteLength));
-      console.log('Embedding packed ciphertext into cover image pixels via 1-bit LSB...');
-      const stegoBlob = await embedLSB(coverBlob, packedCiphertext);
+      const coverBlob = customCoverFile || (await generateCoverBlob(selectedCover, payloadToEmbed.byteLength));
+      console.log('Embedding payload into cover image pixels via 1-bit LSB...');
+      const stegoBlob = await embedLSB(coverBlob, payloadToEmbed);
       console.log('Stego PNG Blob generated successfully (size: ' + stegoBlob.size + ' bytes)');
       const stegoDataUrl = await blobToDataUrl(stegoBlob);
 
@@ -533,9 +592,20 @@ function AppInner() {
 
       setFiles((prevFiles) => [newFile, ...prevFiles.filter((f) => f.id !== newFile.id)]);
       addLog('FILE_ENCRYPT', `Encrypted "${currentFile.name}" (${formatSize(currentFile.size)}) with real AES-256-GCM (PBKDF2 250k iter)`);
-      addLog('STEGO_EMBED', `Embedded ${packedCiphertext.byteLength} ciphertext bytes into ${coverName} via 1-bit LSB spatial pixels`);
+      addLog('STEGO_EMBED', `Embedded ${payloadToEmbed.byteLength} bytes into ${coverName} via 1-bit LSB spatial pixels${attachKey ? ' (with key attached)' : ''}`);
 
-      showToast(remoteFileId ? `Payload ${currentFile.name} encrypted, hidden & saved to Cloud S3!` : `Payload ${currentFile.name} encrypted & hidden in ${coverName}`);
+      // Auto-download the stego image with key attached for User A
+      const baseName = currentFile.name.replace(/\.[^/.]+$/, '');
+      const downloadName = `${baseName}_stego.png`;
+      const dlLink = document.createElement('a');
+      dlLink.href = stegoDataUrl;
+      dlLink.download = downloadName;
+      document.body.appendChild(dlLink);
+      dlLink.click();
+      document.body.removeChild(dlLink);
+      addLog('FILE_DOWNLOAD', `Downloaded stego carrier image "${downloadName}"${attachKey ? ' with key attached' : ''}`);
+
+      showToast(`Payload ${currentFile.name} encrypted & downloaded as "${downloadName}"${attachKey ? ' (key attached)' : ''}!`);
       setTargetFile(null);
       setCustomCoverFile(null);
       setPassphrase('');
@@ -547,10 +617,9 @@ function AppInner() {
   };
 
   // Handle Decrypt Submission (Real 1-Bit LSB Extraction + AES-256-GCM Decryption)
-  // Handle Decrypt Submission (Real 1-Bit LSB Extraction + AES-256-GCM Decryption)
   const handleDecryptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!decryptPassphrase) return showToast('Please enter decryption passphrase');
+    if (!decryptPassphrase && !detectedStegoKey) return showToast('Please enter decryption passphrase');
 
     let packedBytes: Uint8Array | null = null;
     let decName = 'decrypted_payload.txt';
@@ -614,7 +683,7 @@ function AppInner() {
       }
 
       // 2. Real Web Crypto decryptPacked: verifies GCM 16-byte auth tag. Throws OperationError if wrong passphrase!
-      const decryptedBuffer = await decryptPacked(packedBytes, decryptPassphrase);
+      const decryptedBuffer = await decryptPacked(packedBytes, decryptPassphrase || detectedStegoKey || undefined);
       const checksum = await computeSHA256(decryptedBuffer);
 
       // Check if decryptedBuffer has embedded metadata from SV01 package!
@@ -1210,8 +1279,63 @@ function AppInner() {
                     )}
                   </div>
 
-                  {/* Stego Container Auto-Detection Alert */}
-                  {detectedStegoFile && (
+                  {/* Stego Container Auto-Decrypted / Auto-Detection Alert */}
+                  {decryptedStegoFile ? (
+                    <div className="mt-3 p-5 bg-[#EBE7DC] border-2 border-[#059669] rounded-none font-mono">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-[#059669] text-white flex items-center justify-center shrink-0">
+                            <FileCheck className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-[#059669] uppercase text-xs">Stego File Auto-Extracted!</span>
+                              <span className="text-[10px] bg-[#059669]/20 text-[#059669] px-2 py-0.5 font-bold uppercase">Key Attached</span>
+                            </div>
+                            <div className="text-sm font-bold text-stone-900 mt-0.5">{decryptedStegoFile.name}</div>
+                            <div className="text-[11px] text-stone-500 mt-0.5">
+                              {formatSize(decryptedStegoFile.sizeBytes)} · {decryptedStegoFile.mimeType} · SHA-256: {decryptedStegoFile.checksum.substring(0, 12)}...
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const a = document.createElement('a');
+                              a.href = decryptedStegoFile.dataUrl;
+                              a.download = decryptedStegoFile.name;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              showToast(`Downloaded original file: ${decryptedStegoFile.name}`);
+                              addLog('FILE_DOWNLOAD', `Downloaded original file "${decryptedStegoFile.name}" extracted from stego container`);
+                            }}
+                            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 bg-[#059669] hover:bg-[#047857] text-white font-mono uppercase font-bold text-xs tracking-wider transition-colors shrink-0"
+                          >
+                            <Download className="w-4 h-4" />
+                            <span>Download Original File</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStegoContainerFile(detectedStegoFile);
+                              setDecryptPassphrase(decryptedStegoFile.key);
+                              setTargetFile(null);
+                              setDetectedStegoFile(null);
+                              setDecryptedStegoFile(null);
+                              setActiveTab('decrypt');
+                              showToast('Switched to Decrypt tab with auto-filled key');
+                            }}
+                            className="px-3 py-2.5 border border-[#D6D2C4] hover:bg-stone-100 text-stone-700 font-mono uppercase text-xs transition-colors shrink-0"
+                            title="Open in Decrypt View"
+                          >
+                            Inspect →
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : detectedStegoFile ? (
                     <div className="mt-3 p-4 bg-[#EBE7DC] border border-[#059669] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-mono text-xs text-stone-800">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 bg-[#059669]/20 text-[#059669] flex items-center justify-center shrink-0">
@@ -1226,6 +1350,7 @@ function AppInner() {
                         type="button"
                         onClick={() => {
                           setStegoContainerFile(detectedStegoFile);
+                          if (detectedStegoKey) setDecryptPassphrase(detectedStegoKey);
                           setTargetFile(null);
                           setDetectedStegoFile(null);
                           setActiveTab('decrypt');
@@ -1236,7 +1361,7 @@ function AppInner() {
                         Switch to Extract & Decrypt →
                       </button>
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
                 {/* Step 2: Key & Cipher Config */}
@@ -1252,6 +1377,18 @@ function AppInner() {
                       onChange={(e) => setPassphrase(e.target.value)}
                       className="w-full bg-white border border-[#D6D2C4] rounded-none px-4 py-2.5 text-xs text-stone-900 font-mono placeholder-stone-400 focus:outline-none focus:border-[#059669]"
                     />
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="attachKeyCheckbox"
+                        checked={attachKey}
+                        onChange={(e) => setAttachKey(e.target.checked)}
+                        className="accent-[#059669] w-3.5 h-3.5 cursor-pointer rounded-none"
+                      />
+                      <label htmlFor="attachKeyCheckbox" className="text-[11px] font-mono text-stone-600 cursor-pointer select-none">
+                        Attach key to stego container (recipient can auto-decrypt upon upload)
+                      </label>
+                    </div>
                   </div>
 
                   <div>
@@ -1445,13 +1582,20 @@ function AppInner() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono font-semibold uppercase text-stone-700 mb-1.5">
-                    Decryption Passphrase
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-mono font-semibold uppercase text-stone-700">
+                      Decryption Passphrase
+                    </label>
+                    {detectedStegoKey && (
+                      <span className="text-[10px] font-mono bg-[#059669]/15 text-[#059669] px-2 py-0.5 font-bold uppercase">
+                        ✓ Key detected from container
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="password"
-                    required
-                    placeholder="Enter secret master passphrase..."
+                    required={!detectedStegoKey}
+                    placeholder={detectedStegoKey ? "Key automatically attached (or enter custom key)..." : "Enter secret master passphrase..."}
                     value={decryptPassphrase}
                     onChange={(e) => setDecryptPassphrase(e.target.value)}
                     className="w-full bg-white border border-[#D6D2C4] rounded-none px-4 py-2.5 text-xs text-stone-900 font-mono placeholder-stone-400 focus:outline-none focus:border-[#059669]"

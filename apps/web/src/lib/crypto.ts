@@ -66,16 +66,73 @@ export async function encryptFile(
   return packed;
 }
 
+// Pack ciphertext with embedded key (for "with key attached" stego sharing)
+// Format:
+// [0x53, 0x4B, 0x30, 0x31] (Magic: "SK01")
+// [keyLen: uint16, 2 bytes]
+// [keyBytes: UTF-8 encoded passphrase]
+// [packedCiphertext bytes]
+export function attachKeyToStegoPayload(
+  packedCiphertext: Uint8Array,
+  key: string
+): Uint8Array {
+  const enc = new TextEncoder();
+  const keyBytes = enc.encode(key);
+  const total = new Uint8Array(4 + 2 + keyBytes.length + packedCiphertext.length);
+  // Magic: SK01
+  total[0] = 0x53;
+  total[1] = 0x4b;
+  total[2] = 0x30;
+  total[3] = 0x31;
+  new DataView(total.buffer).setUint16(4, keyBytes.length, false);
+  total.set(keyBytes, 6);
+  total.set(packedCiphertext, 6 + keyBytes.length);
+  return total;
+}
+
+// Inspect a stego payload to check if it has an attached key
+export function unpackStegoPayload(
+  payload: Uint8Array
+): { packedCiphertext: Uint8Array; attachedKey: string | null } {
+  if (
+    payload.length >= 6 &&
+    payload[0] === 0x53 &&
+    payload[1] === 0x4b &&
+    payload[2] === 0x30 &&
+    payload[3] === 0x31
+  ) {
+    try {
+      const keyLen = new DataView(payload.buffer, payload.byteOffset, payload.byteLength).getUint16(4, false);
+      if (6 + keyLen <= payload.length) {
+        const keyBytes = payload.slice(6, 6 + keyLen);
+        const attachedKey = new TextDecoder().decode(keyBytes);
+        const packedCiphertext = payload.slice(6 + keyLen);
+        return { packedCiphertext, attachedKey };
+      }
+    } catch {
+      // fallback
+    }
+  }
+  return { packedCiphertext: payload, attachedKey: null };
+}
+
 // Reverses encryptFile(). Throws if the passphrase is wrong (GCM auth tag check fails).
 // Unpacks SV01 metadata header if present, attaching filename & mimeType to the returned ArrayBuffer.
+// If payload contains SK01 attached key, automatically uses it when passphrase is not explicitly supplied.
 export async function decryptPacked(
   packed: Uint8Array,
-  passphrase: string
+  passphrase?: string
 ): Promise<ArrayBuffer> {
-  const salt = packed.slice(0, 16);
-  const iv = packed.slice(16, 28);
-  const ciphertext = packed.slice(28);
-  const key = await deriveKey(passphrase, salt);
+  const { packedCiphertext, attachedKey } = unpackStegoPayload(packed);
+  const effectivePass = passphrase || attachedKey;
+  if (!effectivePass) {
+    throw new Error('No decryption passphrase provided and no key attached to container');
+  }
+
+  const salt = packedCiphertext.slice(0, 16);
+  const iv = packedCiphertext.slice(16, 28);
+  const ciphertext = packedCiphertext.slice(28);
+  const key = await deriveKey(effectivePass, salt);
   const decryptedRaw = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: iv as BufferSource },
     key,
