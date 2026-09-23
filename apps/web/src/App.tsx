@@ -39,7 +39,9 @@ import {
   Copy,
   Check,
   Layers,
-  Plus
+  Plus,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { ThemeToggle } from "./components/ThemeToggle";
 
@@ -309,6 +311,7 @@ function AppInner() {
 
   // Decrypt Form state
   const [decryptPassphrase, setDecryptPassphrase] = useState('');
+  const [showDecryptPassphrase, setShowDecryptPassphrase] = useState(false);
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [decryptResult, setDecryptResult] = useState<any | null>(null);
   const [selectedVaultFile, setSelectedVaultFile] = useState<any | null>(null);
@@ -411,9 +414,12 @@ function AppInner() {
         const { attachedKey } = unpackStegoPayload(payload);
         if (attachedKey) {
           setDecryptPassphrase(attachedKey);
+          setDetectedStegoKey(attachedKey);
           showToast(`Attached key detected and auto-filled!`);
         }
-      } catch {}
+      } catch (err: any) {
+        console.warn('Stego extraction error on select:', err);
+      }
     }
   };
 
@@ -619,7 +625,8 @@ function AppInner() {
   // Handle Decrypt Submission (Real 1-Bit LSB Extraction + AES-256-GCM Decryption)
   const handleDecryptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!decryptPassphrase && !detectedStegoKey) return showToast('Please enter decryption passphrase');
+    if (!decryptPassphrase && !detectedStegoKey && !stegoContainerFile) return showToast('Please enter decryption passphrase or upload a stego image');
+
 
     let packedBytes: Uint8Array | null = null;
     let decName = 'decrypted_payload.txt';
@@ -642,13 +649,19 @@ function AppInner() {
 
         console.log('Extracting payload from uploaded stego container:', stegoContainerFile.name);
         try {
-          // 1. Real 1-Bit LSB extraction from image pixels
+          // 1. Extract stego payload from PNG chunk or LSB pixels
           packedBytes = await extractLSB(stegoContainerFile);
-          console.log(`Extracted ${packedBytes.byteLength} bytes from stego container via LSB.`);
+          console.log(`Extracted ${packedBytes.byteLength} bytes from stego container.`);
+          const { attachedKey } = unpackStegoPayload(packedBytes);
+          if (attachedKey) {
+            setDetectedStegoKey(attachedKey);
+            if (!decryptPassphrase) setDecryptPassphrase(attachedKey);
+            // Store locally — React state update is async and won't be visible
+            // in decryptPassphrase yet at the point of decryptPacked() call below.
+            (window as any).__stegoAttachedKey = attachedKey;
+          }
         } catch (lsbErr: any) {
-          console.warn('LSB extraction failed, attempting direct binary read:', lsbErr.message);
-          const buf = await stegoContainerFile.arrayBuffer();
-          packedBytes = new Uint8Array(buf);
+          console.warn('Stego extraction failed:', lsbErr.message);
         }
       } else if (files.length > 0) {
         // Use selectedVaultFile if selected, else most recent vault file
@@ -683,8 +696,14 @@ function AppInner() {
       }
 
       // 2. Real Web Crypto decryptPacked: verifies GCM 16-byte auth tag. Throws OperationError if wrong passphrase!
-      const decryptedBuffer = await decryptPacked(packedBytes, decryptPassphrase || detectedStegoKey || undefined);
+      // Use effectivePassphrase to avoid stale React state closure: decryptPassphrase state won't
+      // have updated yet if setDecryptPassphrase(attachedKey) was called just above in this same render.
+      const localAttachedKey = (window as any).__stegoAttachedKey || null;
+      delete (window as any).__stegoAttachedKey;
+      const effectivePassphrase = decryptPassphrase || localAttachedKey || detectedStegoKey || undefined;
+      const decryptedBuffer = await decryptPacked(packedBytes, effectivePassphrase);
       const checksum = await computeSHA256(decryptedBuffer);
+
 
       // Check if decryptedBuffer has embedded metadata from SV01 package!
       const finalName = (decryptedBuffer as any).filename || decName;
@@ -1372,6 +1391,9 @@ function AppInner() {
                     </label>
                     <input
                       type="password"
+                      autoComplete="new-password"
+                      name="stegavault_encrypt_passphrase"
+                      data-lpignore="true"
                       placeholder="Enter strong passphrase..."
                       value={passphrase}
                       onChange={(e) => setPassphrase(e.target.value)}
@@ -1588,18 +1610,36 @@ function AppInner() {
                     </label>
                     {detectedStegoKey && (
                       <span className="text-[10px] font-mono bg-[#059669]/15 text-[#059669] px-2 py-0.5 font-bold uppercase">
-                        ✓ Key detected from container
+                        ✓ Key detected from container: auto-filled
                       </span>
                     )}
                   </div>
-                  <input
-                    type="password"
-                    required={!detectedStegoKey}
-                    placeholder={detectedStegoKey ? "Key automatically attached (or enter custom key)..." : "Enter secret master passphrase..."}
-                    value={decryptPassphrase}
-                    onChange={(e) => setDecryptPassphrase(e.target.value)}
-                    className="w-full bg-white border border-[#D6D2C4] rounded-none px-4 py-2.5 text-xs text-stone-900 font-mono placeholder-stone-400 focus:outline-none focus:border-[#059669]"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showDecryptPassphrase ? "text" : "password"}
+                      required={!detectedStegoKey}
+                      autoComplete="new-password"
+                      name="stegavault_decrypt_passphrase"
+                      data-lpignore="true"
+                      placeholder={detectedStegoKey ? "Key automatically attached (or enter custom key)..." : "Enter secret master passphrase..."}
+                      value={decryptPassphrase}
+                      onChange={(e) => setDecryptPassphrase(e.target.value)}
+                      className="w-full bg-white border border-[#D6D2C4] rounded-none pl-4 pr-10 py-2.5 text-xs text-stone-900 font-mono placeholder-stone-400 focus:outline-none focus:border-[#059669]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDecryptPassphrase(!showDecryptPassphrase)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 transition-colors"
+                      title={showDecryptPassphrase ? "Hide passphrase" : "Show passphrase"}
+                    >
+                      {showDecryptPassphrase ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {detectedStegoKey && (
+                    <p className="mt-1 text-[11px] font-mono text-[#059669]">
+                      Attached Key: <code className="bg-[#059669]/10 px-1 py-0.5 font-bold">{detectedStegoKey}</code>
+                    </p>
+                  )}
                 </div>
 
                 <button
