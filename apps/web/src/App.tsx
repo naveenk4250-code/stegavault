@@ -826,8 +826,9 @@ function AppInner() {
     if (!user?.email) return;
     try {
       const remoteFiles = await listFiles(user.email);
-      setFiles(remoteFiles.map((f: any) => ({
+      const mapped = remoteFiles.map((f: any) => ({
         id: f.id,
+        remoteId: f.id,
         name: f.originalFilename,
         type: f.mimeType,
         sizeBytes: f.sizeBytes,
@@ -838,8 +839,24 @@ function AppInner() {
         uploadedAt: f.createdAt.replace('T', ' ').substring(0, 19),
         status: 'Encrypted & Hidden',
         ownerEmail: user.email,
-        remoteId: f.id,
-      })));
+      }));
+
+      setFiles((prev) => {
+        const combined = [...mapped];
+        for (const local of prev) {
+          const matchIdx = combined.findIndex((c) => c.id === local.id || (local.remoteId && c.remoteId === local.remoteId));
+          if (matchIdx >= 0) {
+            combined[matchIdx] = {
+              ...combined[matchIdx],
+              ...local,
+              remoteId: combined[matchIdx].remoteId || local.remoteId,
+            };
+          } else {
+            combined.push(local);
+          }
+        }
+        return combined;
+      });
       showToast('Vault refreshed from cloud storage');
       addLog('VAULT_REFRESH', 'Refreshed vault index from cloud S3 storage');
     } catch (err: any) {
