@@ -579,23 +579,42 @@ function AppInner() {
             ciphertextSha256: realHash,
           });
 
-          // Upload stego image bytes directly to AWS S3 via presigned PUT URL
-          const s3PutRes = await fetch(uploadInfo.uploadUrl, {
-            method: 'PUT',
-            body: stegoBlob,
-            headers: {
-              'Content-Type': 'image/png',
-            },
-          });
+          // Dual S3 Upload:
+          // 1. Stego PNG blob -> stegavault-stego-keys-prod
+          // 2. Encrypted ciphertext blob -> stegavault-encrypted-files-prod
+          const uploadPromises: Promise<any>[] = [
+            fetch(uploadInfo.uploadUrl, {
+              method: 'PUT',
+              body: stegoBlob,
+              headers: {
+                'Content-Type': 'image/png',
+              },
+            }).then((res) => {
+              if (!res.ok) throw new Error(`Stego container S3 PUT failed (${res.status})`);
+            }),
+          ];
 
-          if (!s3PutRes.ok) {
-            throw new Error(`S3 PUT failed with status ${s3PutRes.status}`);
+          if (uploadInfo.uploadUrlEncrypted) {
+            const encryptedBlob = new Blob([packedCiphertext], { type: 'application/octet-stream' });
+            uploadPromises.push(
+              fetch(uploadInfo.uploadUrlEncrypted, {
+                method: 'PUT',
+                body: encryptedBlob,
+                headers: {
+                  'Content-Type': 'application/octet-stream',
+                },
+              }).then((res) => {
+                if (!res.ok) throw new Error(`Encrypted file S3 PUT failed (${res.status})`);
+              }),
+            );
           }
+
+          await Promise.all(uploadPromises);
 
           // Confirm upload with backend to activate file
           await confirmUpload(user.email, uploadInfo.fileId);
           remoteFileId = uploadInfo.fileId;
-          addLog('S3_UPLOAD', `Uploaded encrypted stego container for "${currentFile.name}" to AWS S3`);
+          addLog('S3_UPLOAD', `Stored encrypted ciphertext in S3 and stego carrier in Stego-Keys S3 for "${currentFile.name}"`);
         } catch (cloudErr: any) {
           console.warn('Cloud persistence note:', cloudErr);
           addLog('S3_UPLOAD_NOTE', `S3 upload status: ${cloudErr.message || 'S3 upload failed'}. Stored in local vault.`, 'WARNING');

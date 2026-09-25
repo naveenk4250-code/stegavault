@@ -25,7 +25,9 @@ export interface UploadUrlRequest {
 export interface UploadUrlResponse {
   fileId: string;
   uploadUrl: string;
+  uploadUrlEncrypted?: string;
   s3KeyStego: string;
+  s3KeyEncrypted?: string;
 }
 
 export interface DownloadUrlResponse {

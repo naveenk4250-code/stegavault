@@ -48,14 +48,14 @@ export class FilesService implements OnModuleInit {
       },
     });
 
-    this.stegoBucket = this.config.get<string>(
-      'S3_BUCKET_STEGO',
-      'stegavault-stego-keys-dev',
-    );
-    this.encryptedBucket = this.config.get<string>(
-      'S3_BUCKET_ENCRYPTED',
-      'stegavault-encrypted-files-dev',
-    );
+    this.stegoBucket =
+      this.config.get<string>('S3_BUCKET_STEGO') ||
+      process.env.S3_BUCKET_STEGO ||
+      'stegavault-stego-keys-prod';
+    this.encryptedBucket =
+      this.config.get<string>('S3_BUCKET_ENCRYPTED') ||
+      process.env.S3_BUCKET_ENCRYPTED ||
+      'stegavault-encrypted-files-prod';
     this.uploadTtl = Number(this.config.get<number>('S3_PRESIGN_UPLOAD_TTL', 300));
     this.downloadTtl = Number(
       this.config.get<number>('S3_PRESIGN_DOWNLOAD_TTL', 120),
@@ -139,7 +139,7 @@ export class FilesService implements OnModuleInit {
     const s3KeyStego = `${ownerId}/${fileUuid}.png`;
     const s3KeyEncrypted = `${ownerId}/${fileUuid}.enc`;
 
-    // Step 1: Generate presigned S3 PUT URL
+    // Step 1A: Generate presigned S3 PUT URL for Stego PNG (stegavault-stego-keys-prod)
     let uploadUrl: string;
     try {
       const putCommand = new PutObjectCommand({
@@ -150,9 +150,9 @@ export class FilesService implements OnModuleInit {
       uploadUrl = await getSignedUrl(this.s3Client, putCommand, {
         expiresIn: this.uploadTtl,
       });
-      this.logger.log(`S3 presign OK — bucket="${this.stegoBucket}" key="${s3KeyStego}"`);
+      this.logger.log(`S3 presign Stego OK — bucket="${this.stegoBucket}" key="${s3KeyStego}"`);
     } catch (s3Err: any) {
-      this.logger.error('S3 presign FAILED', {
+      this.logger.error('S3 presign Stego FAILED', {
         name: s3Err?.name,
         message: s3Err?.message,
         code: s3Err?.Code || s3Err?.code,
@@ -162,6 +162,22 @@ export class FilesService implements OnModuleInit {
         hasSecretKey: !!this.config.get<string>('AWS_SECRET_ACCESS_KEY'),
       });
       throw new Error(`S3 presign failed: ${s3Err?.message || 'Unknown S3 error'}`);
+    }
+
+    // Step 1B: Generate presigned S3 PUT URL for Encrypted Ciphertext (stegavault-encrypted-files-prod)
+    let uploadUrlEncrypted: string | undefined;
+    try {
+      const putEncryptedCommand = new PutObjectCommand({
+        Bucket: this.encryptedBucket,
+        Key: s3KeyEncrypted,
+        ContentType: 'application/octet-stream',
+      });
+      uploadUrlEncrypted = await getSignedUrl(this.s3Client, putEncryptedCommand, {
+        expiresIn: this.uploadTtl,
+      });
+      this.logger.log(`S3 presign Encrypted OK — bucket="${this.encryptedBucket}" key="${s3KeyEncrypted}"`);
+    } catch (s3Err: any) {
+      this.logger.warn(`S3 presign Encrypted note: ${s3Err?.message}`);
     }
 
     // Step 2: Create File row in Postgres with status: 'pending'
@@ -195,7 +211,9 @@ export class FilesService implements OnModuleInit {
     return {
       fileId: fileRecord.id,
       uploadUrl,
+      uploadUrlEncrypted,
       s3KeyStego,
+      s3KeyEncrypted,
     };
   }
 
@@ -311,7 +329,7 @@ export class FilesService implements OnModuleInit {
       throw new ForbiddenException('You do not have permission to delete this file');
     }
 
-    // Delete S3 object from S3 bucket
+    // Delete S3 stego object
     if (file.s3KeyStego) {
       try {
         await this.s3Client.send(
@@ -320,9 +338,24 @@ export class FilesService implements OnModuleInit {
             Key: file.s3KeyStego,
           }),
         );
-        this.logger.log(`Deleted S3 object ${file.s3KeyStego}`);
+        this.logger.log(`Deleted S3 stego object ${file.s3KeyStego}`);
       } catch (s3Err: any) {
-        this.logger.warn(`Could not delete S3 object ${file.s3KeyStego}: ${s3Err?.message}`);
+        this.logger.warn(`Could not delete S3 stego object ${file.s3KeyStego}: ${s3Err?.message}`);
+      }
+    }
+
+    // Delete S3 encrypted object
+    if (file.s3KeyEncrypted) {
+      try {
+        await this.s3Client.send(
+          new DeleteObjectCommand({
+            Bucket: this.encryptedBucket,
+            Key: file.s3KeyEncrypted,
+          }),
+        );
+        this.logger.log(`Deleted S3 encrypted object ${file.s3KeyEncrypted}`);
+      } catch (s3Err: any) {
+        this.logger.warn(`Could not delete S3 encrypted object ${file.s3KeyEncrypted}: ${s3Err?.message}`);
       }
     }
 
@@ -347,6 +380,16 @@ export class FilesService implements OnModuleInit {
             new DeleteObjectCommand({
               Bucket: this.stegoBucket,
               Key: f.s3KeyStego,
+            }),
+          );
+        } catch {}
+      }
+      if (f.s3KeyEncrypted) {
+        try {
+          await this.s3Client.send(
+            new DeleteObjectCommand({
+              Bucket: this.encryptedBucket,
+              Key: f.s3KeyEncrypted,
             }),
           );
         } catch {}
