@@ -223,12 +223,13 @@ function AppInner() {
       setShares(loadUserShares(user.email));
       setLogs(loadUserLogs(user.email));
 
-      // Initial load: instant from localStorage, then full from IndexedDB
+      // Load local files immediately from localStorage (instant, sync)
       const instantLocal = loadUserVaultFiles(user.email);
       if (instantLocal.length > 0) {
         setFiles(instantLocal);
       }
 
+      // Then load full files from IndexedDB (async — has stego data URLs)
       idbLoadUserFiles(user.email).then((idbFiles) => {
         if (idbFiles.length > 0) {
           setFiles((prev) => {
@@ -243,9 +244,10 @@ function AppInner() {
         }
       });
 
-      // Query cloud S3 files via backend API
+      // Purely additive cloud sync: NEVER clears local files if cloud returns empty
       listFiles(user.email)
         .then((remoteFiles) => {
+          if (!remoteFiles || remoteFiles.length === 0) return; // Nothing from cloud → leave local alone
           const mapped = remoteFiles.map((f: any) => ({
             id: f.id,
             remoteId: f.id,
@@ -262,25 +264,27 @@ function AppInner() {
           }));
 
           setFiles((prev) => {
-            const combined = [...mapped];
-            for (const local of prev) {
-              const matchIdx = combined.findIndex((c) => c.id === local.id || (local.remoteId && c.remoteId === local.remoteId));
+            const combined = [...prev]; // Start from local — purely additive
+            for (const cloudFile of mapped) {
+              const matchIdx = combined.findIndex(
+                (c) => c.id === cloudFile.id || c.remoteId === cloudFile.id
+              );
               if (matchIdx >= 0) {
                 combined[matchIdx] = {
+                  ...cloudFile,
                   ...combined[matchIdx],
-                  ...local,
-                  remoteId: combined[matchIdx].remoteId || local.remoteId,
+                  remoteId: cloudFile.id,
                 };
               } else {
-                combined.push(local);
+                combined.push(cloudFile);
               }
             }
-            idbSaveUserFiles(user.email, combined);
+            idbSaveUserFiles(user.email!, combined);
             return combined;
           });
         })
-        .catch((err) => {
-          console.warn('Cloud files fetch note:', err);
+        .catch(() => {
+          // Cloud unavailable — local files remain untouched
         });
     } else {
       setFiles([]);
@@ -289,7 +293,7 @@ function AppInner() {
     }
   }, [user?.email]);
 
-  // Persist files into current user's isolated storage
+  // Persist files into IndexedDB whenever files state changes
   useEffect(() => {
     if (!user?.email || files.length === 0) return;
     idbSaveUserFiles(user.email, files);
@@ -847,10 +851,20 @@ function AppInner() {
   const refreshVaultFromCloud = async () => {
     if (!user?.email) return;
     try {
-      const [remoteFiles, savedLocalFiles] = await Promise.all([
-        listFiles(user.email).catch(() => []),
-        idbLoadUserFiles(user.email).catch(() => []),
-      ]);
+      // Load cloud files — if this fails or returns empty, DO NOT TOUCH local state at all
+      let remoteFiles: any[] = [];
+      try {
+        remoteFiles = await listFiles(user.email);
+      } catch {
+        showToast('Cloud sync failed — local vault preserved');
+        return;
+      }
+
+      if (remoteFiles.length === 0) {
+        showToast('Vault is up to date');
+        return; // Cloud has nothing — do NOT clear local files
+      }
+
       const mapped = remoteFiles.map((f: any) => ({
         id: f.id,
         remoteId: f.id,
@@ -866,31 +880,31 @@ function AppInner() {
         ownerEmail: user.email,
       }));
 
+      // PURELY ADDITIVE: start from current local state, only add/update cloud entries
       setFiles((prev) => {
-        const pool = [...prev];
-        for (const sf of savedLocalFiles) {
-          if (!pool.some((p) => p.id === sf.id || (sf.remoteId && p.remoteId === sf.remoteId))) {
-            pool.push(sf);
-          }
-        }
-        const combined = [...mapped];
-        for (const local of pool) {
-          const matchIdx = combined.findIndex((c) => c.id === local.id || (local.remoteId && c.remoteId === local.remoteId));
+        const combined = [...prev];
+        for (const cloudFile of mapped) {
+          const matchIdx = combined.findIndex(
+            (c) => c.id === cloudFile.id || c.remoteId === cloudFile.id
+          );
           if (matchIdx >= 0) {
+            // Update existing local file with cloud metadata, preserving local stego data
             combined[matchIdx] = {
+              ...cloudFile,
               ...combined[matchIdx],
-              ...local,
-              remoteId: combined[matchIdx].remoteId || local.remoteId,
+              remoteId: cloudFile.id,
             };
           } else {
-            combined.push(local);
+            // New cloud file not seen locally — add it
+            combined.push(cloudFile);
           }
         }
-        idbSaveUserFiles(user.email, combined);
+        idbSaveUserFiles(user.email!, combined);
         return combined;
       });
-      showToast('Vault refreshed');
-      addLog('VAULT_REFRESH', 'Refreshed vault index from cloud S3 storage');
+
+      showToast(`Vault synced — ${remoteFiles.length} file(s) from cloud`);
+      addLog('VAULT_REFRESH', `Synced ${remoteFiles.length} file(s) from cloud S3`);
     } catch (err: any) {
       showToast('Cloud refresh failed — check API connection');
     }
