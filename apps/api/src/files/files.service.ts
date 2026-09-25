@@ -116,32 +116,58 @@ export class FilesService {
     const s3KeyStego = `${ownerId}/${fileUuid}.png`;
     const s3KeyEncrypted = `${ownerId}/${fileUuid}.enc`;
 
-    // Presign PUT request for S3_BUCKET_STEGO
-    const putCommand = new PutObjectCommand({
-      Bucket: this.stegoBucket,
-      Key: s3KeyStego,
-      ContentType: 'image/png',
-    });
+    // Step 1: Generate presigned S3 PUT URL
+    let uploadUrl: string;
+    try {
+      const putCommand = new PutObjectCommand({
+        Bucket: this.stegoBucket,
+        Key: s3KeyStego,
+        ContentType: 'image/png',
+      });
+      uploadUrl = await getSignedUrl(this.s3Client, putCommand, {
+        expiresIn: this.uploadTtl,
+      });
+      this.logger.log(`S3 presign OK — bucket="${this.stegoBucket}" key="${s3KeyStego}"`);
+    } catch (s3Err: any) {
+      this.logger.error('S3 presign FAILED', {
+        name: s3Err?.name,
+        message: s3Err?.message,
+        code: s3Err?.Code || s3Err?.code,
+        bucket: this.stegoBucket,
+        region: this.config.get<string>('AWS_REGION', 'us-east-1'),
+        hasAccessKey: !!this.config.get<string>('AWS_ACCESS_KEY_ID'),
+        hasSecretKey: !!this.config.get<string>('AWS_SECRET_ACCESS_KEY'),
+      });
+      throw new Error(`S3 presign failed: ${s3Err?.message || 'Unknown S3 error'}`);
+    }
 
-    const uploadUrl = await getSignedUrl(this.s3Client, putCommand, {
-      expiresIn: this.uploadTtl,
-    });
-
-    // Create File row in Postgres with status: 'pending'
-    const fileRecord = await this.prisma.file.create({
-      data: {
+    // Step 2: Create File row in Postgres with status: 'pending'
+    let fileRecord: any;
+    try {
+      fileRecord = await this.prisma.file.create({
+        data: {
+          ownerId,
+          originalFilename: filename,
+          mimeType: mimeType || 'application/octet-stream',
+          sizeBytes: BigInt(sizeBytes),
+          s3KeyEncrypted,
+          s3KeyStego,
+          iv: ivHex,
+          authTag: authTagHex,
+          ciphertextSha256,
+          status: 'pending',
+        },
+      });
+    } catch (dbErr: any) {
+      this.logger.error('DB file.create FAILED', {
+        name: dbErr?.name,
+        message: dbErr?.message,
+        code: dbErr?.code,
         ownerId,
-        originalFilename: filename,
-        mimeType: mimeType || 'application/octet-stream',
-        sizeBytes: BigInt(sizeBytes),
-        s3KeyEncrypted,
-        s3KeyStego,
-        iv: ivHex,
-        authTag: authTagHex,
-        ciphertextSha256,
-        status: 'pending',
-      },
-    });
+        filename,
+      });
+      throw new Error(`DB write failed: ${dbErr?.message || 'Unknown DB error'}`);
+    }
 
     return {
       fileId: fileRecord.id,
@@ -149,6 +175,7 @@ export class FilesService {
       s3KeyStego,
     };
   }
+
 
   /**
    * Flips File status from 'pending' to 'active' once the frontend S3 PUT succeeds.
