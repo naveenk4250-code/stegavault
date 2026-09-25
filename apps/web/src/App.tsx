@@ -52,6 +52,7 @@ import {
   requestDownloadUrl,
   deleteFile as apiDeleteFile,
 } from './lib/api';
+import { idbSaveUserFiles, idbLoadUserFiles } from './lib/storage';
 
 // Real-time audit log — starts empty, populated only by actual user actions
 const INITIAL_AUDIT_LOGS: {
@@ -222,9 +223,25 @@ function AppInner() {
       setShares(loadUserShares(user.email));
       setLogs(loadUserLogs(user.email));
 
-      // Initial load from local cache for instant UI rendering
-      const localFiles = loadUserVaultFiles(user.email);
-      setFiles(localFiles);
+      // Initial load: instant from localStorage, then full from IndexedDB
+      const instantLocal = loadUserVaultFiles(user.email);
+      if (instantLocal.length > 0) {
+        setFiles(instantLocal);
+      }
+
+      idbLoadUserFiles(user.email).then((idbFiles) => {
+        if (idbFiles.length > 0) {
+          setFiles((prev) => {
+            const merged = [...idbFiles];
+            for (const p of prev) {
+              if (!merged.some((m) => m.id === p.id)) {
+                merged.push(p);
+              }
+            }
+            return merged;
+          });
+        }
+      });
 
       // Query cloud S3 files via backend API
       listFiles(user.email)
@@ -247,10 +264,18 @@ function AppInner() {
           setFiles((prev) => {
             const combined = [...mapped];
             for (const local of prev) {
-              if (!combined.some((c) => c.id === local.id || (local.remoteId && c.remoteId === local.remoteId))) {
+              const matchIdx = combined.findIndex((c) => c.id === local.id || (local.remoteId && c.remoteId === local.remoteId));
+              if (matchIdx >= 0) {
+                combined[matchIdx] = {
+                  ...combined[matchIdx],
+                  ...local,
+                  remoteId: combined[matchIdx].remoteId || local.remoteId,
+                };
+              } else {
                 combined.push(local);
               }
             }
+            idbSaveUserFiles(user.email, combined);
             return combined;
           });
         })
@@ -266,11 +291,8 @@ function AppInner() {
 
   // Persist files into current user's isolated storage
   useEffect(() => {
-    if (!user?.email) return;
-    const key = getUserVaultKey(user.email);
-    try {
-      localStorage.setItem(key, JSON.stringify(files));
-    } catch {}
+    if (!user?.email || files.length === 0) return;
+    idbSaveUserFiles(user.email, files);
   }, [files, user?.email]);
 
   // Persist logs into current user's isolated storage
@@ -825,7 +847,10 @@ function AppInner() {
   const refreshVaultFromCloud = async () => {
     if (!user?.email) return;
     try {
-      const remoteFiles = await listFiles(user.email);
+      const [remoteFiles, savedLocalFiles] = await Promise.all([
+        listFiles(user.email).catch(() => []),
+        idbLoadUserFiles(user.email).catch(() => []),
+      ]);
       const mapped = remoteFiles.map((f: any) => ({
         id: f.id,
         remoteId: f.id,
@@ -842,8 +867,14 @@ function AppInner() {
       }));
 
       setFiles((prev) => {
+        const pool = [...prev];
+        for (const sf of savedLocalFiles) {
+          if (!pool.some((p) => p.id === sf.id || (sf.remoteId && p.remoteId === sf.remoteId))) {
+            pool.push(sf);
+          }
+        }
         const combined = [...mapped];
-        for (const local of prev) {
+        for (const local of pool) {
           const matchIdx = combined.findIndex((c) => c.id === local.id || (local.remoteId && c.remoteId === local.remoteId));
           if (matchIdx >= 0) {
             combined[matchIdx] = {
@@ -855,9 +886,10 @@ function AppInner() {
             combined.push(local);
           }
         }
+        idbSaveUserFiles(user.email, combined);
         return combined;
       });
-      showToast('Vault refreshed from cloud storage');
+      showToast('Vault refreshed');
       addLog('VAULT_REFRESH', 'Refreshed vault index from cloud S3 storage');
     } catch (err: any) {
       showToast('Cloud refresh failed — check API connection');
