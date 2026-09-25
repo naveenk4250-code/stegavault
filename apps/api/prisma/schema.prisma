@@ -56,7 +56,7 @@ model File {
   s3KeyStego       String     @map("s3_key_stego")
   iv               String     @db.VarChar(32)
   authTag          String     @map("auth_tag") @db.VarChar(32)
-  ciphertextSha256 String     @map("ciphertext_sha256") @db.VarChar(64)
+  ciphertextSha256 String     @map("ciphertext_sha256") @db.VarChar(128)
   status           FileStatus @default(pending)
   isDeleted        Boolean    @default(false) @map("is_deleted")
   deletedAt        DateTime?  @map("deleted_at")
