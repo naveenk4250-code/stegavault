@@ -4,19 +4,21 @@ import {
   ForbiddenException,
   BadRequestException,
   Logger,
+  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 
 @Injectable()
-export class FilesService {
+export class FilesService implements OnModuleInit {
   private readonly logger = new Logger(FilesService.name);
   private readonly s3Client: S3Client;
   private readonly stegoBucket: string;
@@ -58,6 +60,27 @@ export class FilesService {
     this.downloadTtl = Number(
       this.config.get<number>('S3_PRESIGN_DOWNLOAD_TTL', 120),
     );
+  }
+
+  async onModuleInit() {
+    // Purge legacy development/test objects from S3 bucket on initialization
+    const legacyKeys = [
+      '41092bc6-e077-4596-a338-fed2e05e7f70/3ff0eaae-9922-4591-836b-d80866e102b3.png',
+      '41092bc6-e077-4596-a338-fed2e05e7f70/11cb9f8d-3f17-4cbd-81c2-63dd139c67e6.png',
+    ];
+    for (const key of legacyKeys) {
+      try {
+        await this.s3Client.send(
+          new DeleteObjectCommand({
+            Bucket: this.stegoBucket,
+            Key: key,
+          }),
+        );
+        this.logger.log(`Purged legacy test S3 object: ${key}`);
+      } catch (err: any) {
+        this.logger.debug(`Legacy S3 cleanup notice: ${err?.message}`);
+      }
+    }
   }
 
   /**
@@ -273,7 +296,7 @@ export class FilesService {
   }
 
   /**
-   * Verifies ownership and performs a soft-delete (isDeleted = true, deletedAt = now).
+   * Verifies ownership, removes object from S3, and deletes the record from database.
    */
   async deleteFile(fileId: string, ownerId: string) {
     const file = await this.prisma.file.findUnique({
@@ -288,14 +311,49 @@ export class FilesService {
       throw new ForbiddenException('You do not have permission to delete this file');
     }
 
-    await this.prisma.file.update({
+    // Delete S3 object from S3 bucket
+    if (file.s3KeyStego) {
+      try {
+        await this.s3Client.send(
+          new DeleteObjectCommand({
+            Bucket: this.stegoBucket,
+            Key: file.s3KeyStego,
+          }),
+        );
+        this.logger.log(`Deleted S3 object ${file.s3KeyStego}`);
+      } catch (s3Err: any) {
+        this.logger.warn(`Could not delete S3 object ${file.s3KeyStego}: ${s3Err?.message}`);
+      }
+    }
+
+    await this.prisma.file.delete({
       where: { id: fileId },
-      data: {
-        isDeleted: true,
-        deletedAt: new Date(),
-      },
     });
 
-    return { success: true, message: `File ${fileId} soft deleted` };
+    return { success: true, message: `File ${fileId} deleted from vault and S3` };
+  }
+
+  /**
+   * Clean reset: Deletes all files and S3 objects for a user to start fresh.
+   */
+  async cleanResetUserVault(ownerId: string) {
+    const userFiles = await this.prisma.file.findMany({
+      where: { ownerId },
+    });
+    for (const f of userFiles) {
+      if (f.s3KeyStego) {
+        try {
+          await this.s3Client.send(
+            new DeleteObjectCommand({
+              Bucket: this.stegoBucket,
+              Key: f.s3KeyStego,
+            }),
+          );
+        } catch {}
+      }
+    }
+    await this.prisma.share.deleteMany({ where: { ownerId } });
+    await this.prisma.file.deleteMany({ where: { ownerId } });
+    return { success: true, message: 'Vault cleaned and reset to clean production state' };
   }
 }

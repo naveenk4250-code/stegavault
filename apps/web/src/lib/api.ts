@@ -146,3 +146,25 @@ export async function deleteFile(
 
   return res.json();
 }
+
+/**
+ * Completely resets and clears the user's remote vault (database records & S3 objects).
+ */
+export async function clearVault(
+  userEmail: string,
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE_URL}/files`, {
+    method: 'DELETE',
+    headers: {
+      'x-user-email': userEmail,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Failed to clear vault' }));
+    throw new Error(err.message || `Clear vault failed with status ${res.status}`);
+  }
+
+  return res.json();
+}
+

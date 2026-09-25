@@ -104,7 +104,7 @@ export class FilesController {
 
   /**
    * DELETE /files/:id
-   * Soft-deletes a file owned by the user.
+   * Deletes a file owned by the user from both database and S3.
    */
   @Delete(':id')
   async deleteFile(
@@ -114,5 +114,16 @@ export class FilesController {
     const email = this.getEmailFromHeader(emailHeader);
     const user = await this.filesService.getOrCreateUserByEmail(email);
     return this.filesService.deleteFile(fileId, user.id);
+  }
+
+  /**
+   * DELETE /files
+   * Completely cleans and resets the vault for the user, removing both DB records and S3 objects.
+   */
+  @Delete()
+  async cleanResetVault(@Headers('x-user-email') emailHeader: string) {
+    const email = this.getEmailFromHeader(emailHeader);
+    const user = await this.filesService.getOrCreateUserByEmail(email);
+    return this.filesService.cleanResetUserVault(user.id);
   }
 }

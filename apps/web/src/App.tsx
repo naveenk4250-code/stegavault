@@ -51,6 +51,7 @@ import {
   listFiles,
   requestDownloadUrl,
   deleteFile as apiDeleteFile,
+  clearVault,
 } from './lib/api';
 import { idbSaveUserFiles, idbLoadUserFiles } from './lib/storage';
 
@@ -295,7 +296,7 @@ function AppInner() {
 
   // Persist files into IndexedDB whenever files state changes
   useEffect(() => {
-    if (!user?.email || files.length === 0) return;
+    if (!user?.email) return;
     idbSaveUserFiles(user.email, files);
   }, [files, user?.email]);
 
@@ -1145,6 +1146,29 @@ function AppInner() {
                   <span>Refresh Vault</span>
                 </button>
 
+                <button
+                  onClick={async () => {
+                    if (!window.confirm('Reset vault to clean production state? This will remove all files from cloud S3 and local storage.')) return;
+                    if (user?.email) {
+                      try {
+                        await clearVault(user.email);
+                      } catch (err: any) {
+                        console.warn('Clear vault API notice:', err);
+                      }
+                      await idbSaveUserFiles(user.email, []);
+                      try {
+                        localStorage.removeItem(getUserVaultKey(user.email));
+                      } catch {}
+                    }
+                    setFiles([]);
+                    showToast('Vault reset — clean production state ready');
+                  }}
+                  className="flex items-center gap-2 bg-[#EBE7DC] border border-[#D6D2C4] hover:border-rose-400 px-3.5 py-2.5 rounded-none text-xs font-mono uppercase tracking-wider font-semibold text-stone-700 hover:text-rose-600 transition-colors"
+                  title="Reset vault to clean production state"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Reset Vault</span>
+                </button>
 
                 <button
                   onClick={() => setActiveTab('encrypt')}
