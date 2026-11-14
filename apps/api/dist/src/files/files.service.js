@@ -43,10 +43,34 @@ let FilesService = FilesService_1 = class FilesService {
                 secretAccessKey,
             },
         });
-        this.stegoBucket = this.config.get('S3_BUCKET_STEGO', 'stegavault-stego-keys-dev');
-        this.encryptedBucket = this.config.get('S3_BUCKET_ENCRYPTED', 'stegavault-encrypted-files-dev');
+        this.stegoBucket =
+            this.config.get('S3_BUCKET_STEGO') ||
+                process.env.S3_BUCKET_STEGO ||
+                'stegavault-stego-keys-prod';
+        this.encryptedBucket =
+            this.config.get('S3_BUCKET_ENCRYPTED') ||
+                process.env.S3_BUCKET_ENCRYPTED ||
+                'stegavault-encrypted-files-prod';
         this.uploadTtl = Number(this.config.get('S3_PRESIGN_UPLOAD_TTL', 300));
         this.downloadTtl = Number(this.config.get('S3_PRESIGN_DOWNLOAD_TTL', 120));
+    }
+    async onModuleInit() {
+        const legacyKeys = [
+            '41092bc6-e077-4596-a338-fed2e05e7f70/3ff0eaae-9922-4591-836b-d80866e102b3.png',
+            '41092bc6-e077-4596-a338-fed2e05e7f70/11cb9f8d-3f17-4cbd-81c2-63dd139c67e6.png',
+        ];
+        for (const key of legacyKeys) {
+            try {
+                await this.s3Client.send(new client_s3_1.DeleteObjectCommand({
+                    Bucket: this.stegoBucket,
+                    Key: key,
+                }));
+                this.logger.log(`Purged legacy test S3 object: ${key}`);
+            }
+            catch (err) {
+                this.logger.debug(`Legacy S3 cleanup notice: ${err?.message}`);
+            }
+        }
     }
     async getOrCreateUserByEmail(email) {
         const cleanEmail = email.toLowerCase().trim();
@@ -60,7 +84,7 @@ let FilesService = FilesService_1 = class FilesService {
             user = await this.prisma.user.create({
                 data: {
                     email: cleanEmail,
-                    displayName: cleanEmail.split('@')[0] || 'StegaVault User',
+                    displayName: cleanEmail.split('@')[0] || 'Secure Cloud Storage User',
                 },
             });
             this.logger.log(`Created minimal user record for ${cleanEmail} (${user.id})`);
@@ -72,32 +96,78 @@ let FilesService = FilesService_1 = class FilesService {
         const fileUuid = (0, crypto_1.randomUUID)();
         const s3KeyStego = `${ownerId}/${fileUuid}.png`;
         const s3KeyEncrypted = `${ownerId}/${fileUuid}.enc`;
-        const putCommand = new client_s3_1.PutObjectCommand({
-            Bucket: this.stegoBucket,
-            Key: s3KeyStego,
-            ContentType: 'image/png',
-        });
-        const uploadUrl = await (0, s3_request_presigner_1.getSignedUrl)(this.s3Client, putCommand, {
-            expiresIn: this.uploadTtl,
-        });
-        const fileRecord = await this.prisma.file.create({
-            data: {
+        let uploadUrl;
+        try {
+            const putCommand = new client_s3_1.PutObjectCommand({
+                Bucket: this.stegoBucket,
+                Key: s3KeyStego,
+                ContentType: 'image/png',
+            });
+            uploadUrl = await (0, s3_request_presigner_1.getSignedUrl)(this.s3Client, putCommand, {
+                expiresIn: this.uploadTtl,
+            });
+            this.logger.log(`S3 presign Stego OK — bucket="${this.stegoBucket}" key="${s3KeyStego}"`);
+        }
+        catch (s3Err) {
+            this.logger.error('S3 presign Stego FAILED', {
+                name: s3Err?.name,
+                message: s3Err?.message,
+                code: s3Err?.Code || s3Err?.code,
+                bucket: this.stegoBucket,
+                region: this.config.get('AWS_REGION', 'us-east-1'),
+                hasAccessKey: !!this.config.get('AWS_ACCESS_KEY_ID'),
+                hasSecretKey: !!this.config.get('AWS_SECRET_ACCESS_KEY'),
+            });
+            throw new Error(`S3 presign failed: ${s3Err?.message || 'Unknown S3 error'}`);
+        }
+        let uploadUrlEncrypted;
+        try {
+            const putEncryptedCommand = new client_s3_1.PutObjectCommand({
+                Bucket: this.encryptedBucket,
+                Key: s3KeyEncrypted,
+                ContentType: 'application/octet-stream',
+            });
+            uploadUrlEncrypted = await (0, s3_request_presigner_1.getSignedUrl)(this.s3Client, putEncryptedCommand, {
+                expiresIn: this.uploadTtl,
+            });
+            this.logger.log(`S3 presign Encrypted OK — bucket="${this.encryptedBucket}" key="${s3KeyEncrypted}"`);
+        }
+        catch (s3Err) {
+            this.logger.warn(`S3 presign Encrypted note: ${s3Err?.message}`);
+        }
+        let fileRecord;
+        try {
+            fileRecord = await this.prisma.file.create({
+                data: {
+                    ownerId,
+                    originalFilename: filename,
+                    mimeType: mimeType || 'application/octet-stream',
+                    sizeBytes: BigInt(sizeBytes),
+                    s3KeyEncrypted,
+                    s3KeyStego,
+                    iv: ivHex,
+                    authTag: authTagHex,
+                    ciphertextSha256,
+                    status: 'pending',
+                },
+            });
+        }
+        catch (dbErr) {
+            this.logger.error('DB file.create FAILED', {
+                name: dbErr?.name,
+                message: dbErr?.message,
+                code: dbErr?.code,
                 ownerId,
-                originalFilename: filename,
-                mimeType: mimeType || 'application/octet-stream',
-                sizeBytes: BigInt(sizeBytes),
-                s3KeyEncrypted,
-                s3KeyStego,
-                iv: ivHex,
-                authTag: authTagHex,
-                ciphertextSha256,
-                status: 'pending',
-            },
-        });
+                filename,
+            });
+            throw new Error(`DB write failed: ${dbErr?.message || 'Unknown DB error'}`);
+        }
         return {
             fileId: fileRecord.id,
             uploadUrl,
+            uploadUrlEncrypted,
             s3KeyStego,
+            s3KeyEncrypted,
         };
     }
     async confirmUpload(fileId, ownerId) {
@@ -182,14 +252,62 @@ let FilesService = FilesService_1 = class FilesService {
         if (file.ownerId !== ownerId) {
             throw new common_1.ForbiddenException('You do not have permission to delete this file');
         }
-        await this.prisma.file.update({
+        if (file.s3KeyStego) {
+            try {
+                await this.s3Client.send(new client_s3_1.DeleteObjectCommand({
+                    Bucket: this.stegoBucket,
+                    Key: file.s3KeyStego,
+                }));
+                this.logger.log(`Deleted S3 stego object ${file.s3KeyStego}`);
+            }
+            catch (s3Err) {
+                this.logger.warn(`Could not delete S3 stego object ${file.s3KeyStego}: ${s3Err?.message}`);
+            }
+        }
+        if (file.s3KeyEncrypted) {
+            try {
+                await this.s3Client.send(new client_s3_1.DeleteObjectCommand({
+                    Bucket: this.encryptedBucket,
+                    Key: file.s3KeyEncrypted,
+                }));
+                this.logger.log(`Deleted S3 encrypted object ${file.s3KeyEncrypted}`);
+            }
+            catch (s3Err) {
+                this.logger.warn(`Could not delete S3 encrypted object ${file.s3KeyEncrypted}: ${s3Err?.message}`);
+            }
+        }
+        await this.prisma.file.delete({
             where: { id: fileId },
-            data: {
-                isDeleted: true,
-                deletedAt: new Date(),
-            },
         });
-        return { success: true, message: `File ${fileId} soft deleted` };
+        return { success: true, message: `File ${fileId} deleted from vault and S3` };
+    }
+    async cleanResetUserVault(ownerId) {
+        const userFiles = await this.prisma.file.findMany({
+            where: { ownerId },
+        });
+        for (const f of userFiles) {
+            if (f.s3KeyStego) {
+                try {
+                    await this.s3Client.send(new client_s3_1.DeleteObjectCommand({
+                        Bucket: this.stegoBucket,
+                        Key: f.s3KeyStego,
+                    }));
+                }
+                catch { }
+            }
+            if (f.s3KeyEncrypted) {
+                try {
+                    await this.s3Client.send(new client_s3_1.DeleteObjectCommand({
+                        Bucket: this.encryptedBucket,
+                        Key: f.s3KeyEncrypted,
+                    }));
+                }
+                catch { }
+            }
+        }
+        await this.prisma.share.deleteMany({ where: { ownerId } });
+        await this.prisma.file.deleteMany({ where: { ownerId } });
+        return { success: true, message: 'Vault cleaned and reset to clean production state' };
     }
 };
 exports.FilesService = FilesService;

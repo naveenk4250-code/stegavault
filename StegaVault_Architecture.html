@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure Cloud Storage - Production Architecture & Data Flow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #0D1117;
+      --card-bg: #161B22;
+      --card-border: #30363D;
+      --text-main: #E6EDF3;
+      --text-muted: #8B949E;
+      --accent: #10B981;
+      --accent-subtle: rgba(16, 185, 129, 0.15);
+      --accent-border: #059669;
+      --cyan: #38BDF8;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'Fira Code', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      padding: 2.5rem 1.5rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0.25rem 0.65rem;
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+
+    h1 {
+      font-size: 2.25rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #FFFFFF;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1rem;
+      margin-top: 0.25rem;
+    }
+
+    .print-btn {
+      background: var(--accent);
+      color: #042F2E;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s;
+    }
+
+    .print-btn:hover {
+      background: #34D399;
+      transform: translateY(-1px);
+    }
+
+    section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      padding: 2rem;
+      margin-bottom: 2.5rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    section h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--card-border);
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .diagram-wrapper {
+      background: #090D13;
+      border: 1px solid var(--card-border);
+      padding: 1.5rem;
+      overflow-x: auto;
+      display: flex;
+      justify-content: center;
+      min-height: 250px;
+    }
+
+    .diagram-wrapper .mermaid {
+      width: 100%;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      border: 1px solid var(--card-border);
+      padding: 0.85rem 1rem;
+      text-align: left;
+    }
+
+    th {
+      background: #0F141C;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--cyan);
+    }
+
+    tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    code {
+      font-family: var(--font-mono);
+      background: rgba(110, 118, 129, 0.2);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.85em;
+      color: #FF7B72;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+      margin-top: 1.5rem;
+    }
+
+    .card {
+      background: #090D13;
+      border: 1px solid var(--card-border);
+      padding: 1.25rem;
+    }
+
+    .card h3 {
+      font-size: 1rem;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+      font-family: var(--font-mono);
+    }
+
+    .card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--card-border);
+    }
+
+    @media print {
+      body {
+        background: #FFFFFF !important;
+        color: #111827 !important;
+        padding: 0;
+      }
+      section {
+        background: #FFFFFF !important;
+        border: 1px solid #E5E7EB !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+        margin-bottom: 1.5rem;
+      }
+      .diagram-wrapper {
+        background: #FFFFFF !important;
+        border: 1px solid #E5E7EB !important;
+      }
+      .print-btn {
+        display: none !important;
+      }
+      table, th, td {
+        border-color: #D1D5DB !important;
+        color: #111827 !important;
+      }
+      th {
+        background: #F3F4F6 !important;
+        color: #111827 !important;
+      }
+      .card {
+        background: #F9FAFB !important;
+        border-color: #E5E7EB !important;
+      }
+      code {
+        background: #F3F4F6 !important;
+        color: #B91C1C !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div>
+        <span class="badge">Production Architecture</span>
+        <h1>Secure Cloud Storage System Architecture</h1>
+        <p class="subtitle">Source-backed cryptographic specification, zero-knowledge boundaries & dual S3 storage</p>
+      </div>
+      <div>
+        <button class="print-btn" onclick="window.print()">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+            <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/>
+          </svg>
+          Print / Save PDF (Ctrl+P)
+        </button>
+      </div>
+    </header>
+
+    <!-- SECTION 1: HIGH-LEVEL ARCHITECTURE -->
+    <section>
+      <h2>1. High-Level System Architecture Diagram</h2>
+      <div class="diagram-wrapper">
+        <pre class="mermaid">
+flowchart TB
+    User(["👤 End User / Operator"])
+    GoogleOAuth["🔐 Google Identity Services<br/>(OAuth 2.0 / UserInfo API)"]
+
+    subgraph ClientSandbox ["🌐 BROWSER RUNTIME (Zero-Knowledge Trust Boundary)"]
+        direction TB
+
+        subgraph WebApp ["React 19 / Vite Application (apps/web)"]
+            UI["Dashboard & Form Interfaces<br/>(App.tsx / LandingPage.tsx)"]
+            AuthClient["Client Auth Controller<br/>(@react-oauth/google)"]
+            APIClient["Backend API Client<br/>(api.ts)"]
+        end
+
+        subgraph CryptoEngine ["Browser Cryptographic Engine (crypto.ts)"]
+            PBKDF2["PBKDF2 Key Derivation<br/>(250,000 iterations, SHA-256)"]
+            AES["AES-256-GCM Hardware Engine<br/>(WebCrypto subtle.encrypt / decrypt)"]
+            Packer["Wire Formatter & Checksums<br/>(SV01 Meta / SK01 Key / SHA-256)"]
+        end
+
+        subgraph StegoEngine ["Dual-Layer Steganography Engine (steganography.ts)"]
+            CanvasLSB["Spatial 1-Bit LSB Embedding<br/>(RGB Channels / Alpha locked to 255)"]
+            ChunkInjector["Lossless Ancillary Chunk Injector<br/>(PNG stEg Chunk + CRC32)"]
+            Extractor["Stego Payload Extractor<br/>(stEg chunk priority -> LSB fallback)"]
+        end
+
+        subgraph ClientStorage ["Browser Local Storage (storage.ts)"]
+            IDB[("IndexedDB: stegavault_db<br/>(Carrier Blobs & Index Cache)")]
+            LStore[("localStorage<br/>(Session & User Metadata)")]
+        end
+    end
+
+    subgraph BackendTier ["⚙️ BACKEND API TIER (apps/api - NestJS on Render)"]
+        direction TB
+
+        Controller["FilesController<br/>(/files endpoints)"]
+        AuthController["AuthController<br/>(/auth/oauth routes)"]
+
+        subgraph Modules ["NestJS Core Modules"]
+            FilesMod["FilesModule & FilesService<br/>(Presigning & S3 Lifecycle)"]
+            AuthMod["AuthModule<br/>(Passport Strategies)"]
+            PrismaMod["PrismaModule & PrismaService<br/>(Direct Supabase Pooler)"]
+        end
+    end
+
+    subgraph DatabaseTier ["🗄️ RELATIONAL DATABASE (Supabase PostgreSQL)"]
+        direction TB
+        PGDB[("PostgreSQL Database Engine<br/>(Port 5432 Direct / 6543 Pooler)")]
+        TableFiles["Table: files<br/>(Catalog, S3 Keys, Status, Hashes)"]
+        TableUsers["Table: users<br/>(Owner UUIDs, Quota, Isolation)"]
+        TableShares["Tables: shares, access_logs, refresh_tokens"]
+        PGDB --- TableFiles
+        PGDB --- TableUsers
+        PGDB --- TableShares
+    end
+
+    subgraph StorageTier ["☁️ CLOUD OBJECT STORAGE (Amazon Web Services S3)"]
+        direction TB
+        BucketStego[("Bucket: stegavault-stego-keys-prod<br/>(Stego Carrier PNG Images: .png)")]
+        BucketEnc[("Bucket: stegavault-encrypted-files-prod<br/>(Raw AES-256-GCM Ciphertext: .enc)")]
+    end
+
+    User -->|"1. Initiates Sign-In"| AuthClient
+    AuthClient -->|"2. OAuth 2.0 Exchange"| GoogleOAuth
+    GoogleOAuth -->|"3. Profile Info"| AuthClient
+    AuthClient -->|"4. Establishes Session"| LStore
+    AuthClient -->|"5. Passes Header (x-user-email)"| APIClient
+
+    User -->|"Uploads File + Passphrase"| UI
+    UI -->|"Raw File + Passphrase"| CryptoEngine
+    PBKDF2 -->|"Derived 256-bit Key"| AES
+    Packer -->|"Packaged SV01 Payload"| AES
+    AES -->|"Packed Ciphertext"| StegoEngine
+    AES -->|"Raw Ciphertext Blob"| APIClient
+
+    CanvasLSB -->|"Pixel Embedded PNG"| StegoEngine
+    ChunkInjector -->|"stEg Injected PNG"| StegoEngine
+    StegoEngine -->|"Stego PNG Blob"| APIClient
+    StegoEngine -->|"Cache Preview"| IDB
+
+    APIClient -->|"POST /files/upload-url"| Controller
+    Controller --> FilesMod
+    FilesMod -->|"Create Pending Record"| PrismaMod
+    PrismaMod -->|"INSERT status='pending'"| TableFiles
+    FilesMod -->|"S3 Presign PUT (uploadUrl)"| BucketStego
+    FilesMod -->|"S3 Presign PUT (uploadUrlEncrypted)"| BucketEnc
+    FilesMod -->|"Return Dual Presigned URLs"| APIClient
+
+    APIClient -->|"Direct PUT: stegoBlob"| BucketStego
+    APIClient -->|"Direct PUT: encryptedBlob"| BucketEnc
+    APIClient -->|"POST /files/:id/confirm"| Controller
+    FilesMod -->|"UPDATE status='active'"| TableFiles
+
+    User -->|"Request Download / Decrypt"| UI
+    UI -->|"GET /files/:id/download-url"| APIClient
+    APIClient -->|"GET Download URL"| Controller
+    FilesMod -->|"Verify Ownership & Presign"| BucketStego
+    BucketStego -->|"Stream Carrier PNG"| APIClient
+    APIClient -->|"Pass Carrier"| Extractor
+    Extractor -->|"Extract Ciphertext"| AES
+    User -->|"Provide Passphrase"| CryptoEngine
+    AES -->|"Decrypt & Verify Auth Tag"| Packer
+    Packer -->|"Unpack SV01 & Restore File"| User
+        </pre>
+      </div>
+    </section>
+
+    <!-- SECTION 2: SEQUENCE DIAGRAM UPLOAD -->
+    <section>
+      <h2>2. Secure Ingestion & Dual-S3 Upload Pipeline</h2>
+      <div class="diagram-wrapper">
+        <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor User as 👤 User
+    participant Browser as 🌐 React Web App (App.tsx)
+    participant Crypto as 🔒 WebCrypto (crypto.ts)
+    participant Stego as 🎨 Stego Engine (steganography.ts)
+    participant API as ⚙️ NestJS API (files.controller.ts)
+    participant DB as 🗄️ Supabase PostgreSQL
+    participant S3_Stego as ☁️ S3: stegavault-stego-keys-prod
+    participant S3_Enc as ☁️ S3: stegavault-encrypted-files-prod
+    participant IDB as 💾 IndexedDB (storage.ts)
+
+    User->>Browser: Selects target file + enters secret passphrase
+    Browser->>Crypto: encryptFile(file, passphrase)
+    Note over Crypto: Generate 16-byte salt<br/>PBKDF2 (250k iter, SHA-256)<br/>Prepend SV01 header<br/>AES-256-GCM encrypt with 12-byte IV<br/>Compute SHA-256 checksum
+    Crypto-->>Browser: packedCiphertext [Salt + IV + Ciphertext + Tag]
+
+    opt Key Attachment Enabled (SK01)
+        Browser->>Crypto: attachKeyToStegoPayload(packedCiphertext, passphrase)
+        Crypto-->>Browser: wrappedPayload [SK01 + keyLen + keyBytes + packedCiphertext]
+    end
+
+    Browser->>Stego: embedLSB(coverBlob, payloadToEmbed)
+    Note over Stego: Spatial: Embed into RGB LSBs<br/>Binary: Inject lossless stEg chunk + CRC32
+    Stego-->>Browser: stegoBlob (image/png)
+
+    Browser->>API: POST /files/upload-url (metadata, sha256) [x-user-email]
+    API->>DB: getOrCreateUserByEmail() -> User ID
+    API->>API: Generate presigned PUT URLs for dual buckets
+    API->>DB: INSERT INTO files (status='pending', ...)
+    API-->>Browser: { fileId, uploadUrl, uploadUrlEncrypted, s3KeyStego, s3KeyEncrypted }
+
+    par Direct S3 Dual Upload
+        Browser->>S3_Stego: HTTP PUT stegoBlob (image/png)
+        S3_Stego-->>Browser: 200 OK (CORS Verified)
+    and
+        Browser->>S3_Enc: HTTP PUT packedCiphertext blob (application/octet-stream)
+        S3_Enc-->>Browser: 200 OK (CORS Verified)
+    end
+
+    Browser->>API: POST /files/:id/confirm [x-user-email]
+    API->>DB: UPDATE files SET status='active' WHERE id=fileId
+    API-->>Browser: 200 OK { id, status: 'active' }
+
+    Browser->>IDB: idbSaveUserFiles(user.email, files)
+    Browser-->>User: File encrypted, hidden, stored in S3 & cataloged in vault
+        </pre>
+      </div>
+    </section>
+
+    <!-- SECTION 3: SEQUENCE DIAGRAM DOWNLOAD -->
+    <section>
+      <h2>3. S3 Presigned Retrieval & Decryption Pipeline</h2>
+      <div class="diagram-wrapper">
+        <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor User as 👤 User / Recipient
+    participant Browser as 🌐 React Web App (App.tsx)
+    participant API as ⚙️ NestJS API (files.controller.ts)
+    participant DB as 🗄️ Supabase PostgreSQL
+    participant S3_Stego as ☁️ S3: stegavault-stego-keys-prod
+    participant Stego as 🎨 Stego Engine (steganography.ts)
+    participant Crypto as 🔒 WebCrypto (crypto.ts)
+
+    alt Direct Retrieval via S3 Vault Index
+        User->>Browser: Clicks Download Carrier on file row
+        Browser->>API: GET /files/:id/download-url [x-user-email]
+        API->>DB: SELECT file WHERE id=fileId AND owner_id=userId
+        API->>API: Presign S3 GET URL (120s TTL)
+        API-->>Browser: { downloadUrl, filename, mimeType, iv, authTag, ciphertextSha256 }
+        Browser->>S3_Stego: HTTP GET downloadUrl
+        S3_Stego-->>Browser: Stego PNG binary stream
+    else Manual Upload of Carrier Image
+        User->>Browser: Drops [filename]_stego.png into "Extract & Decrypt" Tab
+    end
+
+    Browser->>Stego: extractLSB(stegoFileBytes)
+    Note over Stego: 1. Scan PNG chunks for stEg marker<br/>2. If found, verify CRC32 & slice payload<br/>3. If not found, read length & decode RGB LSB bits
+    Stego-->>Browser: extractedBytes (Uint8Array)
+
+    Browser->>Crypto: unpackStegoPayload(extractedBytes)
+    alt SK01 Attached Key Present
+        Crypto-->>Browser: { packedCiphertext, attachedKey }
+        Note over Browser: Auto-populates Decryption Passphrase input
+    else Standard Payload
+        Crypto-->>Browser: { packedCiphertext, attachedKey: null }
+        User->>Browser: Enters Passphrase manually
+    end
+
+    User->>Browser: Clicks "Extract & Decrypt Payload"
+    Browser->>Crypto: decryptPacked(packedCiphertext, passphrase)
+    Note over Crypto: Slice salt & IV<br/>PBKDF2 key derivation (250k iterations)<br/>AES-256-GCM subtle.decrypt()<br/>Verify 16-byte authentication tag<br/>Unpack SV01 header (restore name & MIME)
+    Crypto-->>Browser: originalPlaintextBuffer
+    Browser-->>User: Auto-triggers browser download of restored original file
+        </pre>
+      </div>
+    </section>
+
+    <!-- SECTION 4: COMPONENT INVENTORY -->
+    <section>
+      <h2>4. Component Implementation Inventory</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Component</th>
+            <th>Tech Stack</th>
+            <th>Source Location</th>
+            <th>Responsibility</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>1</strong></td>
+            <td><strong>User / Operator</strong></td>
+            <td>Human Actor</td>
+            <td>Browser Session</td>
+            <td>File selection, secret passphrases, audit inspections.</td>
+          </tr>
+          <tr>
+            <td><strong>2</strong></td>
+            <td><strong>React Web App</strong></td>
+            <td>React 19, Vite, Tailwind v4</td>
+            <td><code>apps/web/src/App.tsx</code></td>
+            <td>UI coordinator, state management, progress feedback.</td>
+          </tr>
+          <tr>
+            <td><strong>3</strong></td>
+            <td><strong>Client Authentication</strong></td>
+            <td>Google OAuth 2.0</td>
+            <td><code>apps/web/src/components/AuthModal.tsx</code></td>
+            <td>Client-side OAuth token exchange, passes <code>x-user-email</code>.</td>
+          </tr>
+          <tr>
+            <td><strong>4</strong></td>
+            <td><strong>Browser Crypto Layer</strong></td>
+            <td>WebCrypto API (SubtleCrypto)</td>
+            <td><code>apps/web/src/lib/crypto.ts</code></td>
+            <td>PBKDF2 (250k iter), AES-256-GCM, SV01/SK01 packing, SHA-256.</td>
+          </tr>
+          <tr>
+            <td><strong>5</strong></td>
+            <td><strong>Steganography Layer</strong></td>
+            <td>HTML5 Canvas + Binary Chunks</td>
+            <td><code>apps/web/src/lib/steganography.ts</code></td>
+            <td>1-bit LSB spatial encoding, lossless <code>stEg</code> chunk injection.</td>
+          </tr>
+          <tr>
+            <td><strong>6</strong></td>
+            <td><strong>NestJS Backend API</strong></td>
+            <td>NestJS 11, Node.js</td>
+            <td><code>apps/api/src/files/*</code></td>
+            <td>Dual S3 presigning (PUT/GET), upload confirmations, catalog APIs.</td>
+          </tr>
+          <tr>
+            <td><strong>7</strong></td>
+            <td><strong>Relational Database</strong></td>
+            <td>Supabase PostgreSQL, Prisma ORM 7</td>
+            <td><code>apps/api/prisma/schema.prisma</code></td>
+            <td>File catalog, tenant isolation, share tokens, audit trails.</td>
+          </tr>
+          <tr>
+            <td><strong>8</strong></td>
+            <td><strong>AWS S3 Stego Bucket</strong></td>
+            <td>Amazon S3 (<code>stegavault-stego-keys-prod</code>)</td>
+            <td>AWS <code>us-east-1</code></td>
+            <td>Stores Stego PNG carrier images (<code>&lt;ownerId&gt;/&lt;uuid&gt;.png</code>).</td>
+          </tr>
+          <tr>
+            <td><strong>9</strong></td>
+            <td><strong>AWS S3 Encrypted Bucket</strong></td>
+            <td>Amazon S3 (<code>stegavault-encrypted-files-prod</code>)</td>
+            <td>AWS <code>us-east-1</code></td>
+            <td>Stores raw AES-256-GCM ciphertexts (<code>&lt;ownerId&gt;/&lt;uuid&gt;.enc</code>).</td>
+          </tr>
+          <tr>
+            <td><strong>10</strong></td>
+            <td><strong>Browser Local Storage</strong></td>
+            <td>IndexedDB & LocalStorage</td>
+            <td><code>apps/web/src/lib/storage.ts</code></td>
+            <td>Persistent client cache for carrier images and session records.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- SECTION 5: SECURITY BOUNDARIES -->
+    <section>
+      <h2>5. Security Boundaries & Zero-Knowledge Verification</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>1. Zero-Knowledge Perimeter</h3>
+          <p>Plaintext data and master passphrases never cross the network. All encryption occurs in ephemeral client RAM. The backend and cloud storage only receive already-encrypted bytes and carrier images.</p>
+        </div>
+        <div class="card">
+          <h3>2. Direct S3 Bandwidth Offloading</h3>
+          <p>Large binary payloads bypass the NestJS backend completely. The API issues short-lived cryptographic presigned URLs (300s TTL), keeping the backend lightweight and memory-safe.</p>
+        </div>
+        <div class="card">
+          <h3>3. Multi-Tenant Relational Isolation</h3>
+          <p>Database queries enforce <code>where: { ownerId }</code>. S3 objects are segmented into <code>&lt;ownerId&gt;/*</code> prefixes, and presigned download URLs are only granted upon ownership verification.</p>
+        </div>
+        <div class="card">
+          <h3>4. Cryptographic Tamper-Proofing</h3>
+          <p>AES-256-GCM produces an immutable 16-byte authentication tag. Modifying even a single bit of the stored ciphertext or pixel payload causes immediate decryption failure.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      Secure Cloud Storage System Architecture &bull; Source-Backed Technical Specification &bull; Generated for Final-Year Engineering Review
+    </footer>
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: '#090D13',
+        primaryColor: '#059669',
+        primaryTextColor: '#FFFFFF',
+        primaryBorderColor: '#10B981',
+        lineColor: '#38BDF8',
+        secondaryColor: '#1E293B',
+        tertiaryColor: '#0F172A'
+      },
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis'
+      },
+      sequence: {
+        useMaxWidth: true,
+        showSequenceNumbers: true,
+        actorMargin: 50
+      }
+    });
+  </script>
+</body>
+</html>

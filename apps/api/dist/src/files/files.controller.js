@@ -65,6 +65,11 @@ let FilesController = class FilesController {
         const user = await this.filesService.getOrCreateUserByEmail(email);
         return this.filesService.deleteFile(fileId, user.id);
     }
+    async cleanResetVault(emailHeader) {
+        const email = this.getEmailFromHeader(emailHeader);
+        const user = await this.filesService.getOrCreateUserByEmail(email);
+        return this.filesService.cleanResetUserVault(user.id);
+    }
 };
 exports.FilesController = FilesController;
 __decorate([
@@ -106,6 +111,13 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], FilesController.prototype, "deleteFile", null);
+__decorate([
+    (0, common_1.Delete)(),
+    __param(0, (0, common_1.Headers)('x-user-email')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], FilesController.prototype, "cleanResetVault", null);
 exports.FilesController = FilesController = __decorate([
     (0, common_1.Controller)('files'),
     __metadata("design:paramtypes", [files_service_1.FilesService])

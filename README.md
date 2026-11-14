@@ -1,4 +1,4 @@
-# 🔐 StegaVault Enterprise
+# 🔐 Secure Cloud Storage Enterprise
 
 > **Zero-knowledge cryptographic steganography platform** — hide encrypted secrets inside ordinary images.
 
@@ -9,9 +9,9 @@
 
 ---
 
-## 🚀 What is StegaVault?
+## 🚀 What is Secure Cloud Storage?
 
-StegaVault is a full-stack security-focused application demonstrating zero-knowledge client-side encryption and steganography, backed by a production-shaped NestJS architecture ready for scalable cloud storage. It combines two core security layers:
+Secure Cloud Storage is a full-stack security-focused application demonstrating zero-knowledge client-side encryption and steganography, backed by a production-shaped NestJS architecture ready for scalable cloud storage. It combines two core security layers:
 
 - **Cryptography** — Encrypts your secret files in-browser using authenticated AES-256-GCM via the Web Crypto API (`crypto.subtle`) with keys derived via PBKDF2 (250,000 iterations, SHA-256).
 - **Steganography** — Embeds the ciphertext into innocent-looking PNG images using real 1-bit spatial LSB (Least Significant Bit) pixel manipulation via the Canvas API.

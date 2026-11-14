@@ -103,7 +103,7 @@ export class FilesService implements OnModuleInit {
       user = await this.prisma.user.create({
         data: {
           email: cleanEmail,
-          displayName: cleanEmail.split('@')[0] || 'StegaVault User',
+          displayName: cleanEmail.split('@')[0] || 'Secure Cloud Storage User',
         },
       });
       this.logger.log(`Created minimal user record for ${cleanEmail} (${user.id})`);

@@ -15,7 +15,10 @@ const client_1 = require("@prisma/client");
 const adapter_pg_1 = require("@prisma/adapter-pg");
 let PrismaService = class PrismaService extends client_1.PrismaClient {
     constructor() {
-        const connectionString = process.env.DATABASE_URL;
+        const raw = process.env.DIRECT_URL || process.env.DATABASE_URL || '';
+        const connectionString = raw
+            .replace('?pgbouncer=true', '')
+            .replace('&pgbouncer=true', '');
         const adapter = new adapter_pg_1.PrismaPg({ connectionString });
         super({ adapter });
     }

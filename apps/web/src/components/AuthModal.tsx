@@ -99,11 +99,11 @@ export function AuthModal({ onClose, onOAuthSuccess }: AuthModalProps) {
         <div className="px-8 pt-8 pb-6 border-b border-[#D6D2C4]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-stone-950 flex items-center justify-center text-stone-100 font-mono font-bold text-xs">
-              SV
+              SCS
             </div>
             <div>
               <div className="font-mono font-black text-stone-950 text-sm uppercase tracking-wider">
-                STEGA<span className="text-[#059669]">VAULT</span>
+                SECURE CLOUD <span className="text-[#059669]">STORAGE</span>
               </div>
               <div className="text-[10px] font-mono text-stone-500 tracking-widest uppercase">
                 Zero-Knowledge Authentication

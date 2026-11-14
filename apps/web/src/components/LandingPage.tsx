@@ -203,10 +203,10 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
           {/* Logo & Brand */}
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-none bg-stone-950 flex items-center justify-center text-stone-100 font-mono font-bold text-xs">
-              SV
+              SCS
             </div>
-            <span className="font-brand text-xl font-black tracking-wider text-stone-950 uppercase">
-              STEGA<span className="text-[#059669]">VAULT</span>
+            <span className="font-brand text-lg sm:text-xl font-black tracking-tight sm:tracking-wider text-stone-950 uppercase">
+              SECURE CLOUD <span className="text-[#059669]">STORAGE</span>
             </span>
           </div>
 
@@ -266,7 +266,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
 
             {/* Descriptive Body Paragraph */}
             <p className="text-stone-700 text-base sm:text-lg leading-relaxed max-w-xl">
-              StegaVault encrypts payloads client-side with <strong className="font-semibold text-stone-950">AES-256-GCM</strong>, then embeds 256-bit keys <em className="font-serif-italic text-stone-900 font-medium">bit-by-bit</em> into cover PNG images. Cloud servers hold <em className="font-serif-italic text-stone-900 font-medium">zero</em> plaintext data.
+              Secure Cloud Storage encrypts payloads client-side with <strong className="font-semibold text-stone-950">AES-256-GCM</strong>, then embeds 256-bit keys <em className="font-serif-italic text-stone-900 font-medium">bit-by-bit</em> into cover PNG images. Cloud servers hold <em className="font-serif-italic text-stone-900 font-medium">zero</em> plaintext data.
             </p>
 
             {/* Feature Bullet Strip (Uppercase Monospace separated by dots) */}
@@ -559,7 +559,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
       <section id="architecture" className="max-w-[1600px] mx-auto border-l border-r border-[#D6D2C4] px-4 sm:px-8 lg:px-12 py-16">
         <div className="text-center mb-12 space-y-2">
           <span className="text-xs font-mono text-[#059669] font-bold uppercase tracking-widest">ARCHITECTURE WORKFLOW</span>
-          <h2 className="text-3xl sm:text-4xl font-black text-stone-950 tracking-tight">How StegaVault Protects Your Data</h2>
+          <h2 className="text-3xl sm:text-4xl font-black text-stone-950 tracking-tight">How Secure Cloud Storage Protects Your Data</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -671,7 +671,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
         <div className="max-w-[1600px] mx-auto border-l border-r border-[#D6D2C4] px-4 sm:px-8 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-stone-600">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-[#059669]" />
-            <span>STEGAVAULT ENTERPRISE v2.4 PLATFORM</span>
+            <span>SECURE CLOUD STORAGE ENTERPRISE v2.4 PLATFORM</span>
           </div>
           <div>AES-256-GCM · LSB STEGANOGRAPHY · ZERO-KNOWLEDGE CORE</div>
         </div>

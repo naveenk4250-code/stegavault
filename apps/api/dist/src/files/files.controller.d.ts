@@ -12,9 +12,11 @@ export declare class FilesController {
     constructor(filesService: FilesService);
     private getEmailFromHeader;
     getUploadUrl(emailHeader: string, body: UploadUrlDto): Promise<{
-        fileId: string;
+        fileId: any;
         uploadUrl: string;
+        uploadUrlEncrypted: string | undefined;
         s3KeyStego: string;
+        s3KeyEncrypted: string;
     }>;
     confirmUpload(fileId: string, emailHeader?: string): Promise<{
         id: string;
@@ -37,6 +39,10 @@ export declare class FilesController {
         ciphertextSha256: string;
     }>;
     deleteFile(fileId: string, emailHeader: string): Promise<{
+        success: boolean;
+        message: string;
+    }>;
+    cleanResetVault(emailHeader: string): Promise<{
         success: boolean;
         message: string;
     }>;

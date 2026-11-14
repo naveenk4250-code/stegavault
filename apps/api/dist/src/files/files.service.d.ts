@@ -1,6 +1,7 @@
+import { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-export declare class FilesService {
+export declare class FilesService implements OnModuleInit {
     private readonly prisma;
     private readonly config;
     private readonly logger;
@@ -10,6 +11,7 @@ export declare class FilesService {
     private readonly uploadTtl;
     private readonly downloadTtl;
     constructor(prisma: PrismaService, config: ConfigService);
+    onModuleInit(): Promise<void>;
     getOrCreateUserByEmail(email: string): Promise<{
         email: string;
         id: string;
@@ -37,9 +39,11 @@ export declare class FilesService {
         authTagHex: string;
         ciphertextSha256: string;
     }): Promise<{
-        fileId: string;
+        fileId: any;
         uploadUrl: string;
+        uploadUrlEncrypted: string | undefined;
         s3KeyStego: string;
+        s3KeyEncrypted: string;
     }>;
     confirmUpload(fileId: string, ownerId?: string): Promise<{
         id: string;
@@ -62,6 +66,10 @@ export declare class FilesService {
         createdAt: any;
     }[]>;
     deleteFile(fileId: string, ownerId: string): Promise<{
+        success: boolean;
+        message: string;
+    }>;
+    cleanResetUserVault(ownerId: string): Promise<{
         success: boolean;
         message: string;
     }>;

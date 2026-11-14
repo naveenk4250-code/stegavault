@@ -14,7 +14,7 @@ const common_1 = require("@nestjs/common");
 let AppController = class AppController {
     getApiStatus() {
         return {
-            name: 'StegaVault Enterprise API',
+            name: 'Secure Cloud Storage Enterprise API',
             version: '2.4.0',
             status: 'ONLINE',
             timestamp: new Date().toISOString(),
